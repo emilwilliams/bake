@@ -4,9 +4,9 @@ Simply embed EXEC: and :STOP into any file and it'll run just fine, example:
 
 EXEC:shell command ...:STOP
 
-you may see a real example in the primary and only source file: `baked.c',
-and in `install.sh'. this is not targeted toward any language and should
-be fairly flexible, especially when multi-line comments are available.
+you may see a real example in the primary and only source file: `baked.c'.
+this is not targeted toward any language and should be fairly flexible,
+especially when multi-line comments are available.
 
 Name/arg extension:
 

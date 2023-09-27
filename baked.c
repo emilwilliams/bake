@@ -11,14 +11,14 @@
  *
  * This program is independent of language, it simply expects the notation as listed below,
  *
- * EXEC:cc baked.c -o baked -std=gnu99 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS:STOP
+ * EXEC:cc $@ -o $* -std=gnu99 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS:STOP
  *
  * Which will run, and in this case, result in this program compiling itself.
  *
  * Another (functional) example:
  EXEC:
  CFLAGS='-std=gnu99 -O2 -Wall -Wextra -Wpedantic -pipe'
- cc baked.c -o baked $CFLAGS # baked
+ cc $@ -o $* $CFLAGS # baked
  :STOP
  *
  * See install.sh for another example coded into a different language.
@@ -30,7 +30,7 @@
  * may not have multiline comments, so you may be restricted to a single line.
  *
  * with the flag CFLAGS='-DSHAKE_COMPAT' Shake compatibility will be enabled,
- * @COMPILECMD cc baked.c -o baked -std=gnu99 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS # SHAKE_COMPAT enabled
+ * @COMPILECMD cc $@ -o $* -std=gnu99 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS # SHAKE_COMPAT enabled
  *
  * TODO
  *
@@ -59,7 +59,7 @@
 # define HELP                                                       \
   "target-file\n"                                                   \
   "Use the format `@COMPILECMD command ...\n' within the target-file\n"
-# define START "@COMPILECMD"
+# define START "@COMPILECMD "
 # define STOP "\n"
 #endif
 
