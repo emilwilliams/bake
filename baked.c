@@ -180,7 +180,6 @@ expand(char * buf, size_t len)
 {
   size_t i = 0;
   char * str = "";
-  ++len;
   assert(buf);
   for (i = 0; i < len; ++i)
   {
@@ -276,7 +275,9 @@ main(int argc, char ** argv)
   if (!(start = find(buf,   START))
       ||  !(stop  = find(start, STOP)))
   { die("No usable format located in '%s'", argv[1]); }
+
   init(argv, argc);
+
   len = stop - start - strlen(STOP);
   memmove(buf, start, len);
   } /* EOL start stop*/
