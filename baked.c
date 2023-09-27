@@ -115,32 +115,6 @@ insert(const char * new, char * str, size_t offset, size_t shift)
 }
 
 static char *
-expand(char * buf, char ** str)
-{
-  size_t i, len = strlen(buf);
-  int x;
-  buf = realloc(buf, 500);
-  for (i = 0; i < len; ++i)
-  {
-    if (buf[i] == '\\')
-    { i += 2; continue; }
-    else if (buf[i] == '$')
-    {
-      switch (buf[++i])
-      {
-      case '@': x = 0; break;
-      case '*': x = 1; break;
-      case '+': x = 2; break;
-      default: continue;
-      }
-      buf = insert(str[x], buf, i - 1, 2);
-      len = strlen(buf);
-    }
-  }
-  return buf;
-}
-
-static char *
 shorten(char * fn)
 {
   size_t i, last = 0, len = strlen(fn);
@@ -177,35 +151,57 @@ all_args(size_t argc, char ** argv)
   return all;
 }
 
+static char *
+expand(char * buf, int argc, char ** argv)
+{
+  size_t i, len = strlen(buf);
+  char * str[3] = {0}, * ptr;
+  buf = realloc(buf, 500);
+  for (i = 0; i < len; ++i)
+  {
+    if (buf[i] == '\\')
+    { i += 2; continue; }
+    else if (buf[i] == '$')
+    {
+      switch (buf[++i])
+      {
+      case '@':
+        if (!str[0])
+        { str[0] = argv[1]; }
+        ptr = str[0];
+        break;
+      case '*':
+        if (!str[1])
+        { str[1] = shorten(argv[1]); }
+        ptr = str[1];
+        break;
+      case '+':
+        if (!str[2])
+        { str[2] = all_args((size_t) argc, argv); }
+        ptr = str[2] ? str[2] : "";
+        break;
+      default: continue;
+      }
+      buf = insert(ptr, buf, i - 1, 2);
+      len = strlen(buf);
+    }
+  }
+  free(str[1]); free(str[2]);
+  return buf;
+}
+
 int
 main(int argc, char ** argv)
 {
   int ret;
-  char * str[3];
   char * buf;
   if (argc < 2)
-  {
-    fprintf(stderr, "%s: %s", argv[0], HELP DESC);
-    return 1;
-  }
-
-  /* filename */
-  str[0] = argv[1];
-
-  /* sh */
-  str[1] = shorten(argv[1]);
-
-  /* all */
-
-  str[2] = all_args((size_t) argc, argv);
-
+  { fprintf(stderr, "%s: %s", argv[0], HELP DESC); return 1; }
   buf = find_region(argv[1]);
   root(argv[1]);
-  buf = expand(buf, str);
+  buf = expand(buf, argc, argv);
   fprintf(stderr, "Exec: %s\nOutput:\n", buf);
   fprintf(stderr, "Result: %d\n", (ret = system(buf)));
-  free(str[2]);
-  free(str[1]);
   free(buf);
   return ret;
 }
