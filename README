@@ -1,0 +1,24 @@
+baked, a baking accessory for all your embedded scripts needs.
+
+Simply embed EXEC: and :STOP into any file and it'll run just fine, example:
+
+EXEC:shell command ...:STOP
+
+you may see a real example in the primary and only source file: `baked.c',
+and in `install.sh'. this is not targeted toward any language and should
+be fairly flexible, especially when multi-line comments are available.
+
+Name/arg extension:
+
+$@: the name of the executed file
+$*: the text of the filename before the last dot
+$+: the remaining arguments to baked
+
+baked was inspired by Shake (formerly eMake), written by anon, which
+you may view at <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
+
+Shake compatibility may be enabled with `CFLAGS='-DSHAKE_COMPAT' baked
+baked.c', the format is `@COMPILECMD ...\n' a functioning example my
+be found along side the other examples in `baked.c'.
+
+Baked is licensed under the GPLv3, See LICENSE.
