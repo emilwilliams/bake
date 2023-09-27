@@ -74,8 +74,7 @@ static const char * argv0;
 static char * g_filename = NULL, * g_sh = NULL, * g_all = NULL;
 
 static void
-_die(const char * fmt,
-    ...)
+_die(const char * fmt, ...)
 {
   va_list ap;
   assert(fmt);
@@ -93,28 +92,20 @@ _die(const char * fmt,
   { fputc('\n', stderr); }
 }
 
-static int
-exists(const char * fn)
-{
-  struct stat buf;
-  if (!stat(fn,&buf) &&
-      buf.st_mode & S_IFREG)
-  { return 1; }
-  return 0;
-}
-
 static char *
 load(const char * fn)
 {
-  size_t len;
-  char * buf;
+  struct stat s;
   FILE * fp = fopen(fn, "rb");
-  if (fp)
+  if (!(stat(fn,&s)) &&
+      s.st_mode & S_IFREG &&
+      fp)
   {
-    fseek(fp, 0, SEEK_END);
-    len = ftell(fp);
-    rewind(fp);
-    buf = malloc(len + 1);
+    size_t len;
+    char * buf;
+    len = s.st_size;
+    if (!(buf = malloc(len + 1)))
+    { return NULL; }
     if (fread(buf, 1, len, fp) > strlen(STOP) + strlen(START))
     {
       buf[len] = '\0';
@@ -148,7 +139,19 @@ root(char * root)
   swap(root + len, x);
   ret = chdir(root);
   swap(root + len, x);
+  printf("root:%d\n", ret);
   return ret;
+}
+
+static char *
+find(char * buf, const char * token)
+{
+  size_t len = strlen(token);
+  const char * stop = buf + strlen(buf);
+  do if (!strncmp(buf,token,len))
+  { return buf + len; }
+  while (buf < stop && ++buf);
+  return NULL;
 }
 
 static char *
@@ -162,17 +165,6 @@ insert(const char * new, char * str, size_t offset, size_t shift)
   memmove(str + offset + len, str + offset + shift, max - offset - shift);
   memcpy(str + offset, new, len);
   return str;
-}
-
-static char *
-find(char * buf, const char * token)
-{
-  size_t len = strlen(token);
-  const char * stop = buf + strlen(buf);
-  do if (!strncmp(buf,token,len))
-  { return buf + len; }
-  while (buf < stop && ++buf);
-  return NULL;
 }
 
 static char *
@@ -196,7 +188,7 @@ expand(char * buf, size_t len)
         str = g_sh;
         break;
       case '+': /* replace $+ with all args */
-        str = g_all;
+        str = g_all ? g_all : "";
         break;
       default: continue;
       }
@@ -265,12 +257,9 @@ main(int argc, char ** argv)
   if (argc < 2)
   { die(HELP); }
 
-  if (!exists(argv[1]))
-  { die("cannot access '%s':", argv[1]); }
-
   if (!(buf = load(argv[1]))
-      ||          root(argv[1]))
-  { die(errno ? NULL : "File too short"); }
+      ||      root(argv[1]))
+  { die(errno ? "cannot access '%s':" : "'%s': file too short", argv[1]); }
 
   if (!(start = find(buf,   START))
       ||  !(stop  = find(start, STOP)))
