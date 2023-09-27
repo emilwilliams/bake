@@ -25,3 +25,5 @@ baked.c', the format is `@COMPILECMD ...\n' a functioning example my
 be found along side the other examples in `baked.c'.
 
 Baked is licensed under the GPLv3, See LICENSE.
+
+Baked began on September 13th, 2023.
