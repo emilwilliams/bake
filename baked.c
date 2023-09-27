@@ -34,10 +34,9 @@
  *
  * TODO
  *
- * 1. replace asserts with proper checks (maybe longjmp, however
- *    this might be costly, and might not satify -fanalyzer)
- * 2. somehow convince the compiler to do NULL checks before g_...
- *    so that allocs can be minimized even further (maybe volatile)
+ * 1. somehow convince the compiler to do NULL checks before g_...
+ *    so that allocs can be minimized even further (maybe it should be volatile)
+ * 2. support #!/bin/someshell
  */
 
 #include <assert.h>
@@ -72,6 +71,8 @@
 
 static const char * argv0;
 static char * g_filename = NULL, * g_sh = NULL, * g_all = NULL;
+
+#define local_assert(expr, ret) do { assert(expr); return ret; } while(0)
 
 static void
 _die(const char * fmt, ...)
@@ -161,7 +162,7 @@ insert(const char * new, char * str, size_t offset, size_t shift)
   size_t max = strlen(str) + 1;
   /* fprintf(stderr, "params '%s' '%s' %ld %ld\n", new, str, offset, shift); */
   str = realloc(str, max + len);
-  assert(str);
+  local_assert(str, NULL);
   memmove(str + offset + len, str + offset + shift, max - offset - shift);
   memcpy(str + offset, new, len);
   return str;
@@ -172,7 +173,7 @@ expand(char * buf, size_t len)
 {
   size_t i = 0;
   char * str = "";
-  assert(buf);
+  local_assert(buf, NULL);
   for (i = 0; i < len; ++i)
   {
     if (buf[i] == '\\')
