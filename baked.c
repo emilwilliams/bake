@@ -1,25 +1,21 @@
 /* baked.c - Ever burned a cake?
-   Copyright 2023 Emil Williams
-
-   Licensed under the GNU Public License version 3 only, see LICENSE.
-
-   EXEC:cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS:STOP
-   @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS
-
-   TODO
-
-   1. Possibly trim whitespace from before and after the buffer (no realloc), and
-      make sure single lined commands are not wrapped. (BLOAT)
+ * Copyright 2023 Emil Williams
+ *
+ * Licensed under the GNU Public License version 3 only, see LICENSE.
+ *
+ * EXEC:cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS:STOP
+ * @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS
  */
 
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #ifndef SHAKE_COMPAT
 # define HELP                                                           \
@@ -233,11 +229,21 @@ expand(char * buf, size_t len)
       default: continue;
       }
       buf = insert(ptr, buf, i - 1, 2);
-      len = strlen(buf);
     }
   }
   free(g_short); free(g_all);
   return buf;
+}
+
+static size_t
+strip(char * buf)
+{
+  size_t i = strlen(buf);
+  while (isspace(buf[i - 1]))
+  { --i; }
+  buf[i] = '\0';
+  for (i = 0; isspace(buf[i]); ++i);
+  return i;
 }
 
 static int
@@ -269,7 +275,7 @@ main(int argc, char ** argv)
 
   buf = expand(buf, expand_size(buf, strlen(buf), argc, argv) + 1);
 
-  fprintf(stderr, "Exec: %s\n", buf);
+  fprintf(stderr, "Exec: %s\n", buf + strip(buf) - (buf[0] == '\n'));
   if ((ret = ret ? 0 : run(buf)))
   { fprintf(stderr, "Result: %d\n", ret); }
 
