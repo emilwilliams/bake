@@ -167,7 +167,6 @@ static size_t
 expand_size(char * buf, size_t len, int argc, char ** argv)
 {
   size_t i, max = len;
-  g_filename = argv[1];
   for (i = 0; i < len; ++i)
   {
     if (buf[i] == '\\')
@@ -181,7 +180,7 @@ expand_size(char * buf, size_t len, int argc, char ** argv)
         break;
       case '*':
         if (!g_short)
-        { g_short = shorten(argv[1]); }
+        { g_short = shorten(g_filename); }
         max += strlen(g_short);
         break;
       case '+':
@@ -229,22 +228,39 @@ expand(char * buf, size_t len)
   return buf;
 }
 
+static int
+run(const char * buf)
+{
+  fputs("Output:\n", stderr);
+  root(g_filename);
+  return system(buf);
+}
+
 int
 main(int argc, char ** argv)
 {
-  int ret;
-  size_t len;
+  int ret = 0;
   char * buf;
-  if (argc < 2)
+
+  if (argc < 2
+  ||  !strcmp(argv[1], "-h"))
   { fprintf(stderr, "%s: %s", argv[0], HELP DESC); return 1; }
-  buf = find_region(argv[1]);
-  if (!buf
-  ||   root(argv[1]))
+
+  g_filename = argv[1];
+
+  if (!strcmp(argv[1], "-n"))
+  { ret = 1; g_filename = argv[2]; }
+
+  buf = find_region(g_filename);
+  if (!buf)
   { if (errno) { perror(NULL); } return 1; }
-  len = expand_size(buf, strlen(buf), argc, argv) + 1;
-  buf = expand(buf, len);
-  fprintf(stderr, "Exec: %s\nOutput:\n", buf);
-  fprintf(stderr, "Result: %d\n", (ret = system(buf)));
+
+  buf = expand(buf, expand_size(buf, strlen(buf), argc, argv) + 1);
+
+  fprintf(stderr, "Exec: %s\n", buf);
+  if ((ret = ret ? 0 : run(buf)))
+  { fprintf(stderr, "Result: %d\n", ret); }
+
   free(buf);
   return ret;
 }
