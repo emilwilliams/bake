@@ -28,6 +28,10 @@
   "\t$*  returns target-file without suffix\n"                        \
   "\t$+  returns arguments\n"
 
+#define local_assert(expr, ret) do { assert(expr); if (!expr) { return ret; }} while (0)
+
+static char * g_filename, * g_short, * g_all;
+
 static char *
 find(char * buf, const char * token)
 {
@@ -47,13 +51,15 @@ load(const char * fn)
   if (fp)
   {
     struct stat s;
-    size_t len;
+    off_t len;
     if (! stat(fn,&s)
-    &&    s.st_mode & S_IFREG
-    &&   (len = s.st_size)
-    &&   (buf = malloc(len + 1))
-    &&    fread(buf, 1, len, fp) > strlen(STOP) + strlen(START))
-    { buf[len] = '\0'; }
+    &&    s.st_mode & S_IFREG)
+    {
+      len = s.st_size;
+      buf = malloc(len + 1);
+      fread(buf, 1, len, fp);
+      buf[len] = '\0';
+    }
     fclose(fp);
   }
   return buf;
@@ -66,16 +72,16 @@ find_region(const char * fn)
   char * buf, * start, * stop;
 
   if (!(buf = load(fn)))
-  { fprintf(stderr, errno ? "cannot access '%s':" : "'%s': file too short", fn); return NULL; }
+  { if (errno) { fprintf(stderr, "cannot access '%s': ", fn); } return NULL; }
 
   if (!(start = find(buf,   START))
   ||  !(stop  = find(start, STOP)))
-  { fprintf(stderr, "No usable format located in '%s'", fn); return NULL; }
+  { fprintf(stderr, "No usable format located in '%s'", fn); free(buf); return NULL; }
 
   len = stop - start - strlen(STOP);
   memmove(buf, start, len);
-  buf = realloc(buf, len + 1);
   buf[len] = '\0';
+
   return buf;
 }
 
@@ -90,8 +96,8 @@ swap(char * a, char * b)
 static int
 root(char * root)
 {
-  char x[1] = "\0";
   int ret;
+  char x[1] = "\0";
   size_t len = strlen(root);
   while (len && root[len] != '/')
   { --len; }
@@ -106,9 +112,11 @@ root(char * root)
 static char *
 insert(const char * new, char * str, size_t offset, size_t shift)
 {
-  size_t len = strlen(new);
-  size_t max = strlen(str) + 1;
-  /* str = realloc(str, max + len); */
+  size_t len, max;
+  local_assert(new, str);
+  local_assert(str, NULL);
+  len = strlen(new);
+  max = strlen(str) + 1;
   memmove(str + offset + len, str + offset + shift, max - offset - shift);
   memcpy(str + offset, new, len);
   return str;
@@ -117,8 +125,12 @@ insert(const char * new, char * str, size_t offset, size_t shift)
 static char *
 shorten(char * fn)
 {
-  size_t i, last = 0, len = strlen(fn);
-  char * sh = malloc(len + 1);
+  size_t i, last = 0, len;
+  char * sh;
+  local_assert(fn, NULL);
+  len = strlen(fn);
+  sh = malloc(len + 1);
+  local_assert(sh, NULL);
   for (i = 0; i < len; ++i)
   {
     if (fn[i] == '.')
@@ -151,12 +163,11 @@ all_args(size_t argc, char ** argv)
   return all;
 }
 
-static char *
-expand(char * buf, int argc, char ** argv)
+static size_t
+expand_size(char * buf, size_t len, int argc, char ** argv)
 {
-  size_t i, len = strlen(buf);
-  char * str[3] = {0}, * ptr;
-  buf = realloc(buf, 500);
+  size_t i, max = len;
+  g_filename = argv[1];
   for (i = 0; i < len; ++i)
   {
     if (buf[i] == '\\')
@@ -166,19 +177,47 @@ expand(char * buf, int argc, char ** argv)
       switch (buf[++i])
       {
       case '@':
-        if (!str[0])
-        { str[0] = argv[1]; }
-        ptr = str[0];
+        max += strlen(g_filename);
         break;
       case '*':
-        if (!str[1])
-        { str[1] = shorten(argv[1]); }
-        ptr = str[1];
+        if (!g_short)
+        { g_short = shorten(argv[1]); }
+        max += strlen(g_short);
         break;
       case '+':
-        if (!str[2])
-        { str[2] = all_args((size_t) argc, argv); }
-        ptr = str[2] ? str[2] : "";
+        if (!g_all)
+        { g_all = all_args((size_t) argc, argv); }
+        max += g_all ? strlen(g_all) : 0;
+        break;
+      }
+    }
+  }
+  return max;
+}
+
+static char *
+expand(char * buf, size_t len)
+{
+  size_t i;
+  char * ptr = NULL;
+  buf = realloc(buf, len);
+  local_assert(buf, NULL);
+  for (i = 0; i < len; ++i)
+  {
+    if (buf[i] == '\\')
+    { i += 2; continue; }
+    else if (buf[i] == '$')
+    {
+      switch (buf[++i])
+      {
+      case '@':
+        ptr = g_filename;
+        break;
+      case '*':
+        ptr = g_short;
+        break;
+      case '+':
+        ptr = g_all ? g_all : "";
         break;
       default: continue;
       }
@@ -186,7 +225,7 @@ expand(char * buf, int argc, char ** argv)
       len = strlen(buf);
     }
   }
-  free(str[1]); free(str[2]);
+  free(g_short); free(g_all);
   return buf;
 }
 
@@ -194,12 +233,16 @@ int
 main(int argc, char ** argv)
 {
   int ret;
+  size_t len;
   char * buf;
   if (argc < 2)
   { fprintf(stderr, "%s: %s", argv[0], HELP DESC); return 1; }
   buf = find_region(argv[1]);
-  root(argv[1]);
-  buf = expand(buf, argc, argv);
+  if (!buf
+  ||   root(argv[1]))
+  { if (errno) { perror(NULL); } return 1; }
+  len = expand_size(buf, strlen(buf), argc, argv) + 1;
+  buf = expand(buf, len);
   fprintf(stderr, "Exec: %s\nOutput:\n", buf);
   fprintf(stderr, "Result: %d\n", (ret = system(buf)));
   free(buf);
