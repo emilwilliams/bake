@@ -84,7 +84,7 @@ find_region(const char * fn)
 
   if (!(start = find(buf,   START))
   ||  !(stop  = find(start, STOP)))
-  { fprintf(stderr, "No usable format located in '%s'", fn); free(buf); return NULL; }
+  { fprintf(stderr, "No usable format located in '%s'\n", fn); free(buf); return NULL; }
 
   len = stop - start - strlen(STOP);
   memmove(buf, start, len);
