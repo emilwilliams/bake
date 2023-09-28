@@ -1,4 +1,16 @@
-/* EXEC:cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS:STOP */
+/* baked.c - Ever burned a cake?
+   Copyright 2023 Emil Williams
+
+   Licensed under the GNU Public License version 3 only, see LICENSE.
+
+   EXEC:cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS:STOP
+   @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS
+
+   TODO
+
+   1. Possibly trim whitespace from before and after the buffer (no realloc), and
+      make sure single lined commands are not wrapped. (BLOAT)
+ */
 
 #include <assert.h>
 #include <errno.h>

@@ -8,14 +8,25 @@ you may see a real example in the primary and only source file: `baked.c'.
 this is not targeted toward any language and should be fairly flexible,
 especially when multi-line comments are available.
 
+Buildng
+
 Initial building may be done by examining and running `install.sh',
 if you don't want to install it right away, run `SUDO= TARGET=. ./install.sh'
 
-Name/arg extension:
+Name/Arg extension
 
 $@: the name of the executed file
 $*: the text of the filename before the last dot
 $+: the remaining arguments to baked
+
+Options extension
+
+only one option may be in use at a time, and must come as the first argument.
+
+-h: displays help message, similiarly to empty input.
+-n: DRYRUN, does NOT run anything!
+
+Notes
 
 baked was inspired by Shake (formerly eMake), written by anon, which
 you may view at <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
