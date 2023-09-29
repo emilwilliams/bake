@@ -10,10 +10,12 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -23,12 +25,14 @@
   "Use the format `EXEC:command ...:STOP' within the target-file\n"
 # define START "EXEC:"
 # define STOP ":STOP"
+# define SLEN 5
 #else
 # define HELP                                                           \
   "target-file [arguments ...]\n"                                       \
   "Use the format `@COMPILECMD command ...\n' within the target-file\n"
 # define START "@COMPILECMD "
 # define STOP "\n"
+# define SLEN 12
 #endif
 
 #define DESC                                                          \
@@ -41,55 +45,63 @@
 static char * g_filename, * g_short, * g_all;
 
 static char *
-find(char * buf, const char * token)
-{
-  size_t len = strlen(token);
-  const char * stop = buf + strlen(buf);
-  do if (!strncmp(buf,token,len))
-  { return buf + len; }
-  while (buf < stop && ++buf);
-  return NULL;
-}
-
-static char *
-load(const char * fn)
-{
-  char * buf = NULL;
-  FILE * fp = fopen(fn, "rb");
-  if (fp)
-  {
-    struct stat s;
-    off_t len;
-    if (! stat(fn,&s)
-    &&    s.st_mode & S_IFREG)
-    {
-      len = s.st_size;
-      buf = malloc(len + 1);
-      fread(buf, 1, len, fp);
-      buf[len] = '\0';
-    }
-    fclose(fp);
-  }
-  return buf;
-}
-
-static char *
 find_region(const char * fn)
 {
-  size_t len;
-  char * buf, * start, * stop;
+  struct stat s;
+  int fd;
+  char * buf = NULL;
 
-  if (!(buf = load(fn)))
-  { if (errno) { fprintf(stderr, "cannot access '%s': ", fn); } return NULL; }
+  fd = open(fn, O_RDONLY);
 
-  if (!(start = find(buf,   START))
-  ||  !(stop  = find(start, STOP)))
-  { fprintf(stderr, "No usable format located in '%s'\n", fn); free(buf); return NULL; }
+  if ( fd != -1
+  &&  !fstat(fd,&s)
+  &&   s.st_mode & S_IFREG
+  &&   s.st_size)
+  {
+    char * start, * stop, * addr;
+    /* hypothetically mmap can return -1 (MAP_FAILED) on failure,
+       this will not be due to permission, noexist, or ifreg.
+       Checks ensures that all these possibilities are impossible.
+       However, other issues may occur, such as a unexpected
+       change to permission after the fstat call had succeeded.
+       Then, this call may fail, Under such condition the for loop
+       will safely lead to a bail with a possible bad call of munmap. */
+    addr = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
-  len = stop - start - strlen(STOP);
-  memmove(buf, start, len);
-  buf[len] = '\0';
-
+    for (start = addr; *start; ++start)
+    {
+      if (s.st_size - (start - addr) > SLEN)
+      {
+        if (!strncmp(start,START,SLEN))
+        {
+          start += strlen(START);
+          for (stop = start; *stop; ++stop)
+          {
+            if (s.st_size - (stop - addr) > SLEN)
+            {
+              if (!strncmp(stop,STOP,SLEN))
+              {
+                size_t len = (stop - addr) - (start - addr);
+                buf = malloc(len + 1);
+                assert(buf);
+                if (!buf)
+                { goto stop; }
+                strncpy(buf, start, len);
+                buf[len] = '\0';
+                goto stop;
+              }
+            }
+            else goto stop;
+          }
+          goto stop;
+        }
+      }
+      else goto stop;
+    }
+  stop:
+    if (addr != MAP_FAILED)
+    { munmap(addr, s.st_size); }
+  }
   return buf;
 }
 
@@ -160,6 +172,7 @@ all_args(size_t argc, char ** argv)
     for (i = 2; i < argc; ++i)
     { len += strlen(argv[i]); }
     all = malloc(len + 1);
+    local_assert(all, NULL);
     all[len] = '\0';
     len = 0;
     for (i = 2; i < argc; ++i)
@@ -190,7 +203,7 @@ expand_size(char * buf, int argc, char ** argv)
       case '*':
         if (!g_short)
         { g_short = shorten(g_filename); }
-        max += strlen(g_short);
+        max += g_short ? strlen(g_short) : 0;
         break;
       case '+':
         if (!g_all)
@@ -204,12 +217,10 @@ expand_size(char * buf, int argc, char ** argv)
 }
 
 static char *
-expand(char * buf, size_t len)
+expand(char * buf)
 {
   size_t i;
   char * ptr = NULL;
-  buf = realloc(buf, len);
-  local_assert(buf, NULL);
   for (i = 0; buf[i]; ++i)
   {
     if (buf[i] == '\\')
@@ -219,6 +230,22 @@ expand(char * buf, size_t len)
       switch (buf[++i])
       {
       case '@':
+        /* against the advice of -fanalyzer
+         *
+         * -- Supposed use of NULL is IMPOSSIBLE by standards definition:
+         *
+         * If the value of argc is greater than zero, the array members
+         * argv[0] through argv[argc-1] inclusive shall contain pointers
+         * to strings [...]
+         *
+         * -- Under the codition that argc is either not <2 and under
+         * the correct context, >2, the prorgam will not continue under
+         * either of these failure states and hence this is without
+         * doubt an impossibility.
+         * Unless an unaccounted for UB or a manual control flow error
+         * exists, for which may interfere with these conditions, this
+         * must certainly be a false-positive.
+         */
         ptr = g_filename;
         break;
       case '*':
@@ -268,14 +295,26 @@ main(int argc, char ** argv)
   g_filename = argv[1];
 
   if (!strcmp(argv[1], "-n"))
-  { ret = 1; g_filename = argv[2]; }
+  {
+    if (argc > 2)
+    { ret = 1; g_filename = argv[2]; }
+    else
+    { return 1; }
+  }
 
   buf = find_region(g_filename);
   if (!buf)
-  { if (errno) { perror(NULL); } return 1; }
+  {
+    if (errno)
+    { perror(argv[0]); }
+    else
+    { fprintf(stderr, "%s: File unrecognized.\n", argv[0]); }
+    return 1;
+  }
 
-  buf = expand(buf, expand_size(buf, argc, argv));
-
+  buf = realloc(buf, expand_size(buf, argc, argv));
+  local_assert(buf, 1);
+  buf = expand(buf);
   fprintf(stderr, "Exec: %s\n", buf + strip(buf) - (buf[0] == '\n'));
   if ((ret = ret ? 0 : run(buf)))
   { fprintf(stderr, "Result: %d\n", ret); }
