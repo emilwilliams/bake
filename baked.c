@@ -124,8 +124,8 @@ insert(const char * new, char * str, size_t offset, size_t shift)
   local_assert(new, str);
   local_assert(str, NULL);
   len = strlen(new);
-  max = strlen(str) + 1;
-  memmove(str + offset + len, str + offset + shift, max - offset - shift);
+  max = (strlen(str) + 1 - offset - shift);
+  memmove(str + offset + len, str + offset + shift, max);
   memcpy(str + offset, new, len);
   return str;
 }
@@ -172,9 +172,10 @@ all_args(size_t argc, char ** argv)
 }
 
 static size_t
-expand_size(char * buf, size_t len, int argc, char ** argv)
+expand_size(char * buf, int argc, char ** argv)
 {
-  size_t i, max = len;
+  size_t i, len, max;
+  len = max = strlen(buf) + 1;
   for (i = 0; i < len; ++i)
   {
     if (buf[i] == '\\')
@@ -209,7 +210,7 @@ expand(char * buf, size_t len)
   char * ptr = NULL;
   buf = realloc(buf, len);
   local_assert(buf, NULL);
-  for (i = 0; i < len; ++i)
+  for (i = 0; buf[i]; ++i)
   {
     if (buf[i] == '\\')
     { i += 2; continue; }
@@ -273,7 +274,7 @@ main(int argc, char ** argv)
   if (!buf)
   { if (errno) { perror(NULL); } return 1; }
 
-  buf = expand(buf, expand_size(buf, strlen(buf), argc, argv) + 1);
+  buf = expand(buf, expand_size(buf, argc, argv));
 
   fprintf(stderr, "Exec: %s\n", buf + strip(buf) - (buf[0] == '\n'));
   if ((ret = ret ? 0 : run(buf)))
