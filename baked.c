@@ -36,6 +36,9 @@
 #endif
 
 #define DESC                                                          \
+  "Options [Must always be first]\n"                                  \
+  "\t-h, this message, -n dryrun\n"                                   \
+  "In-file expansions\n"                                              \
   "\t$@  returns target-file\n"                                       \
   "\t$*  returns target-file without suffix\n"                        \
   "\t$+  returns arguments\n"
@@ -290,7 +293,7 @@ main(int argc, char ** argv)
 
   if (argc < 2
   ||  !strcmp(argv[1], "-h"))
-  { fprintf(stderr, "%s: %s", argv[0], HELP DESC); return 1; }
+  { goto help; }
 
   g_filename = argv[1];
 
@@ -299,7 +302,7 @@ main(int argc, char ** argv)
     if (argc > 2)
     { ret = 1; g_filename = argv[2]; }
     else
-    { return 1; }
+    { goto help; }
   }
 
   buf = find_region(g_filename);
@@ -321,4 +324,7 @@ main(int argc, char ** argv)
 
   free(buf);
   return ret;
+help:
+  fprintf(stderr, "%s: %s", argv[0], HELP DESC);
+  return 1;
 }
