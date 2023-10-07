@@ -11,6 +11,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <locale.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,48 +63,42 @@ find_region(const char * fn)
   &&   s.st_size)
   {
     char * start, * stop, * addr;
-    /* hypothetically mmap can return -1 (MAP_FAILED) on failure,
-       this will not be due to permission, noexist, or ifreg.
-       Checks ensures that all these possibilities are impossible.
-       However, other issues may occur, such as a unexpected
-       change to permission after the fstat call had succeeded.
-       Then, this call may fail, Under such condition the for loop
-       will safely lead to a bail with a possible bad call of munmap. */
     addr = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
-
-    for (start = addr; *start; ++start)
-    {
-      if (s.st_size - (start - addr) > SLEN)
-      {
-        if (!strncmp(start,START,SLEN))
-        {
-          start += strlen(START);
-          for (stop = start; *stop; ++stop)
-          {
-            if (s.st_size - (stop - addr) > SLEN)
-            {
-              if (!strncmp(stop,STOP,SLEN))
-              {
-                size_t len = (stop - addr) - (start - addr);
-                buf = malloc(len + 1);
-                assert(buf);
-                if (!buf)
-                { goto stop; }
-                strncpy(buf, start, len);
-                buf[len] = '\0';
-                goto stop;
-              }
-            }
-            else goto stop;
-          }
-          goto stop;
-        }
-      }
-      else goto stop;
-    }
-  stop:
     if (addr != MAP_FAILED)
-    { munmap(addr, s.st_size); }
+    {
+      for (start = addr; *start; ++start)
+      {
+        if (s.st_size - (start - addr) > SLEN)
+        {
+          if (!strncmp(start,START,SLEN))
+          {
+            start += strlen(START);
+            for (stop = start; *stop; ++stop)
+            {
+              if (s.st_size - (stop - addr) > SLEN)
+              {
+                if (!strncmp(stop,STOP,SLEN))
+                {
+                  size_t len = (stop - addr) - (start - addr);
+                  buf = malloc(len + 1);
+                  assert(buf);
+                  if (!buf)
+                  { goto stop; }
+                  strncpy(buf, start, len);
+                  buf[len] = '\0';
+                  goto stop;
+                }
+              }
+              else goto stop;
+            }
+            goto stop;
+          }
+        }
+        else goto stop;
+      }
+  stop:
+      munmap(addr, s.st_size);
+    }
   }
   return buf;
 }
@@ -270,6 +265,8 @@ static size_t
 strip(char * buf)
 {
   size_t i = strlen(buf);
+  if (!i)
+  { return 0; }
   while (isspace(buf[i - 1]))
   { --i; }
   buf[i] = '\0';
@@ -290,6 +287,8 @@ main(int argc, char ** argv)
 {
   int ret = 0;
   char * buf;
+
+  assert(setlocale(LC_ALL, "C"));
 
   if (argc < 2
   ||  !strcmp(argv[1], "-h"))
