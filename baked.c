@@ -57,48 +57,51 @@ find_region(const char * fn)
 
   fd = open(fn, O_RDONLY);
 
-  if ( fd != -1
-  &&  !fstat(fd,&s)
-  &&   s.st_mode & S_IFREG
-  &&   s.st_size)
+  if (fd != -1)
   {
-    char * start, * stop, * addr;
-    addr = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
-    if (addr != MAP_FAILED)
+    if (!fstat(fd,&s)
+        &&   s.st_mode & S_IFREG
+        &&   s.st_size)
     {
-      for (start = addr; *start; ++start)
+      char * start, * stop, * addr;
+      addr = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
+      if (addr != MAP_FAILED)
       {
-        if (s.st_size - (start - addr) > SLEN)
+        for (start = addr; *start; ++start)
         {
-          if (!strncmp(start,START,SLEN))
+          if (s.st_size - (start - addr) > SLEN)
           {
-            start += strlen(START);
-            for (stop = start; *stop; ++stop)
+            if (!strncmp(start,START,SLEN))
             {
-              if (s.st_size - (stop - addr) > SLEN)
+              start += strlen(START);
+              for (stop = start; *stop; ++stop)
               {
-                if (!strncmp(stop,STOP,SLEN))
+                if (s.st_size - (stop - addr) > SLEN)
                 {
-                  size_t len = (stop - addr) - (start - addr);
-                  buf = malloc(len + 1);
-                  assert(buf);
-                  if (!buf)
-                  { goto stop; }
-                  strncpy(buf, start, len);
-                  buf[len] = '\0';
-                  goto stop;
+                  if (!strncmp(stop,STOP,SLEN))
+                  {
+                    size_t len = (stop - addr) - (start - addr);
+                    buf = malloc(len + 1);
+                    assert(buf);
+                    if (!buf)
+                    { goto stop; }
+                    strncpy(buf, start, len);
+                    buf[len] = '\0';
+                    goto stop;
+                  }
                 }
+                else goto stop;
               }
-              else goto stop;
+              goto stop;
             }
-            goto stop;
           }
+          else goto stop;
         }
-        else goto stop;
+      stop:
+        munmap(addr, s.st_size);
       }
-  stop:
-      munmap(addr, s.st_size);
     }
+    close(fd);
   }
   return buf;
 }
