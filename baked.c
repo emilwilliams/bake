@@ -4,7 +4,6 @@
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
  * @EXEC cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS STOP@
- * @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS STOP@
  */
 
 #include <assert.h>
@@ -23,11 +22,12 @@
 
 /* Require space after @ABC and before STOP@ (no space required around newline) */
 #define REQUIRE_SPACE
+/* May be undefined */
+#define OTHER_START "@COMPILECMD"
 
-# define OTHER_START "@COMPILECMD"
-# define START "@EXEC"
-# define  STOP "STOP@"
-# define  HELP                                                                         \
+#define START "@EXEC"
+#define  STOP "STOP@"
+#define  HELP                                                                          \
     "target-file [arguments ...]\n"                                                    \
     "Use the format `@EXEC cmd ...' within the target-file, this will execute the\n"   \
     "rest of line, or if found within the file, until the STOP@ marker. You may use\n" \
@@ -37,7 +37,7 @@
 
 #define DESC                                                \
   "Options [Must always be first]\n"                        \
-  "\t-h, this message, -n dryrun\n"                         \
+  "\t-h --help, -n --dry-run\n"                             \
   "Expansions\n"                                            \
   "\t$@  returns target-file                (abc.x.txt)\n"  \
   "\t$*  returns target-file without suffix (^-> abc.x)\n"  \
@@ -80,12 +80,14 @@ find_region(const char * fn)
       if (addr != MAP_FAILED)
       {
         start = find(START, addr, s.st_size, strlen(START));
+#ifdef OTHER_START
         if (!start)
         {
           start = find(OTHER_START, addr, s.st_size, strlen(OTHER_START));
           start = (const char *) /* DON'T QUESTION IT */
                  ((ptrdiff_t) (start - strlen(START) + strlen(OTHER_START)) * (start != 0));
         }
+#endif /* OTHER_START */
         if (start)
         {
           start += strlen(START);
@@ -298,16 +300,17 @@ main(int argc, char ** argv)
 {
   int ret = 0;
   char * buf;
-
   assert(setlocale(LC_ALL, "C"));
 
   if (argc < 2
-  ||  !strcmp(argv[1], "-h"))
+  ||  !strcmp(argv[1], "-h")
+  ||  !strcmp(argv[1], "--help"))
   { goto help; }
 
   g_filename = argv[1];
 
-  if (!strcmp(argv[1], "-n"))
+  if (!strcmp(argv[1], "-n")
+  ||  !strcmp(argv[1], "--dry-run"))
   {
     if (argc > 2)
     { ret = 1; g_filename = argv[2]; }
