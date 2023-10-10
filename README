@@ -1,8 +1,6 @@
-baked, a baking accessory for all your embedded scripts needs.
+Baked, embed scripts into files.
 
-Simply embed EXEC: and :STOP into any file and it'll run just fine, example:
-
-EXEC:shell command ...:STOP
+Executes @EXEC to the end of the line or STOP@ within in any given file.
 
 you may see a real example in the primary and only source file: `baked.c'.
 this is not targeted toward any language and should be fairly flexible,
@@ -17,23 +15,20 @@ Name/Arg extension
 
 $@: the name of the executed file
 $*: the text of the filename before the last dot
-$+: the remaining arguments to baked
+$+: the remaining arguments to Baked
 
 Options extension
 
 only one option may be in use at a time, and must come as the first argument.
 
--h: displays help message, similiarly to empty input.
--n: DRYRUN, does NOT run anything!
+-h, --help: displays help message, similiarly to empty input.
+-n, --dry-run: DRYRUN, does NOT run anything!
 
 Notes
 
-baked was inspired by Shake (formerly eMake), written by anon, which
-you may view at <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
-
-Shake compatibility may be enabled with `CFLAGS='-DSHAKE_COMPAT' baked
-baked.c', the format is `@COMPILECMD ...\n' a functioning example my
-be found along side the other examples in `baked.c'.
+Baked was inspired by the Bash-based Shake utility (formerly eMake,
+he liked my suggestion for a name), written by an anon, which you may
+view at: <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
 
 Baked is licensed under the GPLv3, See LICENSE.
 
