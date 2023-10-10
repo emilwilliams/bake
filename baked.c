@@ -3,7 +3,7 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * EXEC:cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS:STOP
+ * @EXEC cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS STOP@
  * @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS
  */
 
@@ -20,33 +20,48 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#ifndef SHAKE_COMPAT
-# define HELP                                                           \
-  "target-file [arguments ...]\n"                                       \
-  "Use the format `EXEC:command ...:STOP' within the target-file\n"
-# define START "EXEC:"
-# define STOP ":STOP"
-# define SLEN 5
+#define REQUIRE_SPACE
+#define NEWLINE "\n"
+
+#ifdef SHAKE_COMPAT
+# define START "@COMPILECMD"
+# define  STOP "STOP@"
+# define  HELP                                                          \
+    "target-file [arguments ...]\n"                                     \
+    "Use the format `@COMPILECMD command ...\n' (STOP@ suffix supported) within the target-file\n"
 #else
-# define HELP                                                           \
-  "target-file [arguments ...]\n"                                       \
-  "Use the format `@COMPILECMD command ...\n' within the target-file\n"
-# define START "@COMPILECMD "
-# define STOP "\n"
-# define SLEN 12
+/* Neo-format, as suggested by Anon, as it seems to be an unspoken standard
+   to prefix external special macros with @ (see code analyzing tools, doctools, etc.) */
+# define START "@EXEC"
+# define  STOP "STOP@"
+# define  HELP                                                        \
+    "target-file [arguments ...]\n"                                   \
+    "Use the format `@EXEC command ... STOP@' within the target-file\n"
 #endif
 
-#define DESC                                                          \
-  "Options [Must always be first]\n"                                  \
-  "\t-h, this message, -n dryrun\n"                                   \
-  "In-file expansions\n"                                              \
-  "\t$@  returns target-file\n"                                       \
-  "\t$*  returns target-file without suffix\n"                        \
+#define DESC                                                \
+  "Options [Must always be first]\n"                        \
+  "\t-h, this message, -n dryrun\n"                         \
+  "Expansions\n"                                            \
+  "\t$@  returns target-file                (abc.x.txt)\n"  \
+  "\t$*  returns target-file without suffix (^-> abc.x)\n"  \
   "\t$+  returns arguments\n"
 
 #define local_assert(expr, ret) do { assert(expr); if (!expr) { return ret; }} while (0)
 
 static char * g_filename, * g_short, * g_all;
+
+static const char *
+find(const char * x, const char * buf, const size_t max, const size_t min)
+{
+  const char * start = buf;
+  for (; *buf; ++buf)
+  {
+    if (max - (buf - start) > min && !strncmp(buf, x, min))
+    { return buf; }
+  }
+  return NULL;
+}
 
 static char *
 find_region(const char * fn)
@@ -63,41 +78,40 @@ find_region(const char * fn)
         &&   s.st_mode & S_IFREG
         &&   s.st_size)
     {
-      char * start, * stop, * addr;
+      const char * start, * stop;
+      char * addr;
       addr = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
       if (addr != MAP_FAILED)
       {
-        for (start = addr; *start; ++start)
+        start = find(START, addr, s.st_size, strlen(START));
+        if (start)
         {
-          if (s.st_size - (start - addr) > SLEN)
+          start += strlen(START);
+#ifdef REQUIRE_SPACE
+          if (!isspace(*start))
           {
-            if (!strncmp(start,START,SLEN))
+            fprintf(stderr, "ERROR: Found @START token without suffix spacing.\n");
+            return NULL;
+          }
+#endif
+          stop = find(STOP, start, s.st_size - (start - addr), strlen(STOP));
+          /* NOTE this is assuming the last line of the a file is
+                  terminated with a newline, per unix tradition. */
+          if (!stop)
+          { stop = find(NEWLINE, start, s.st_size - (start - addr), 1); }
+#ifdef REQUIRE_SPACE
+          else
+          {
+            if (!isspace(*(stop - 1)))
             {
-              start += strlen(START);
-              for (stop = start; *stop; ++stop)
-              {
-                if (s.st_size - (stop - addr) > SLEN)
-                {
-                  if (!strncmp(stop,STOP,SLEN))
-                  {
-                    size_t len = (stop - addr) - (start - addr);
-                    buf = malloc(len + 1);
-                    assert(buf);
-                    if (!buf)
-                    { goto stop; }
-                    strncpy(buf, start, len);
-                    buf[len] = '\0';
-                    goto stop;
-                  }
-                }
-                else goto stop;
-              }
-              goto stop;
+              fprintf(stderr, "ERROR: Found STOP@ token without prefixing spacing.\n");
+              return NULL;
             }
           }
-          else goto stop;
+#endif
+          if (stop)
+          { buf = strndup(start, (stop - addr) - (start - addr)); }
         }
-      stop:
         munmap(addr, s.st_size);
       }
     }
@@ -169,7 +183,7 @@ all_args(size_t argc, char ** argv)
   char * all = NULL;
   if (argc > 2)
   {
-    size_t i, len = 0;
+    size_t i, len = argc;
     for (i = 2; i < argc; ++i)
     { len += strlen(argv[i]); }
     all = malloc(len + 1);
@@ -179,7 +193,9 @@ all_args(size_t argc, char ** argv)
     for (i = 2; i < argc; ++i)
     {
       strcpy(all + len, argv[i]);
-      len += strlen(argv[i]);
+      len += strlen(argv[i]) + 1;
+      if (i + 1 < argc)
+      { all[len - 1] = ' '; }
     }
   }
   return all;
@@ -231,22 +247,6 @@ expand(char * buf)
       switch (buf[++i])
       {
       case '@':
-        /* against the advice of -fanalyzer
-         *
-         * -- Supposed use of NULL is IMPOSSIBLE by standards definition:
-         *
-         * If the value of argc is greater than zero, the array members
-         * argv[0] through argv[argc-1] inclusive shall contain pointers
-         * to strings [...]
-         *
-         * -- Under the codition that argc is either not <2 and under
-         * the correct context, >2, the prorgam will not continue under
-         * either of these failure states and hence this is without
-         * doubt an impossibility.
-         * Unless an unaccounted for UB or a manual control flow error
-         * exists, for which may interfere with these conditions, this
-         * must certainly be a false-positive.
-         */
         ptr = g_filename;
         break;
       case '*':
