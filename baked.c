@@ -4,7 +4,7 @@
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
  * @EXEC cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS STOP@
- * @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS
+ * @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS STOP@
  */
 
 #include <assert.h>
@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <locale.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -82,7 +83,8 @@ find_region(const char * fn)
         if (!start)
         {
           start = find(OTHER_START, addr, s.st_size, strlen(OTHER_START));
-          start = start - strlen(START) + strlen(OTHER_START) * (start != 0);
+          start = (const char *) /* DON'T QUESTION IT */
+                 ((ptrdiff_t) (start - strlen(START) + strlen(OTHER_START)) * (start != 0));
         }
         if (start)
         {
@@ -98,18 +100,10 @@ find_region(const char * fn)
           if (!stop)
           {
             stop = start;
-            while (*stop && *stop == '\n'
-               /* &&  !(*stop == '\r' */
-               /* ||    *stop == '\n') */
-              )
+            while (*stop && *stop != '\n')
             {
-              if (stop[0] == '\\')
-              {
-                if (stop[1] == '\n')
-                { stop += 2; }
-                /* else if (stop[1] == '\r' && stop[2] == '\n') */
-                /* { stop += 3; } */
-              }
+              if (stop[0] == '\\' && stop[1] == '\n')
+              { stop += 2; }
               ++stop;
             }
           }
