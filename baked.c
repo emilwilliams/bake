@@ -62,8 +62,6 @@ map(const char * fn, size_t * len)
     {
       *len = s.st_size;
       addr = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
-      if (addr == MAP_FAILED)
-      { addr = NULL; }
     }
     close(fd);
   }

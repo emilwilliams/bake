@@ -44,8 +44,6 @@ map(const char * fn, size_t * len)
     {
       *len = s.st_size;
       addr = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
-      if (addr == MAP_FAILED)
-      { addr = NULL; }
     }
     close(fd);
   }
@@ -76,17 +74,7 @@ find_region(const char * fn, const char * start, const char * stop)
     if ((pb = find(start, addr, len, strlen(start))))
     {
       pb += strlen(start);
-      pe = find(stop, pb, len - (pb - addr), strlen(stop));
-      if (!pe)
-      {
-        pe = pb;
-        while (*pe && *pe != '\n')
-        {
-          if (pe[0] == '\\' && pe[1] == '\n')
-          { pe += 2; }
-          ++pe;
-        }
-      }
+      pe  = find(stop, pb, len - (pb - addr), strlen(stop));
       if (pe)
       { buf = strndup(pb, (pe - addr) - (pb - addr)); }
     }
