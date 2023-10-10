@@ -20,24 +20,19 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* Require space after @ABC and before STOP@ (no space required around newline) */
 #define REQUIRE_SPACE
-#define NEWLINE "\n"
 
-#ifdef SHAKE_COMPAT
-# define START "@COMPILECMD"
-# define  STOP "STOP@"
-# define  HELP                                                          \
-    "target-file [arguments ...]\n"                                     \
-    "Use the format `@COMPILECMD command ...\n' (STOP@ suffix supported) within the target-file\n"
-#else
-/* Neo-format, as suggested by Anon, as it seems to be an unspoken standard
-   to prefix external special macros with @ (see code analyzing tools, doctools, etc.) */
+# define OTHER_START "@COMPILECMD"
 # define START "@EXEC"
 # define  STOP "STOP@"
-# define  HELP                                                        \
-    "target-file [arguments ...]\n"                                   \
-    "Use the format `@EXEC command ... STOP@' within the target-file\n"
-#endif
+# define  HELP                                                                         \
+    "target-file [arguments ...]\n"                                                    \
+    "Use the format `@EXEC cmd ...' within the target-file, this will execute the\n"   \
+    "rest of line, or if found within the file, until the STOP@ marker. You may use\n" \
+    "@COMPILECMD instead of @EXEC.  Whitespace is required after and before both\n"    \
+    "operators always.\n"
+
 
 #define DESC                                                \
   "Options [Must always be first]\n"                        \
@@ -84,27 +79,46 @@ find_region(const char * fn)
       if (addr != MAP_FAILED)
       {
         start = find(START, addr, s.st_size, strlen(START));
+        if (!start)
+        {
+          start = find(OTHER_START, addr, s.st_size, strlen(OTHER_START));
+          start = start - strlen(START) + strlen(OTHER_START) * (start != 0);
+        }
         if (start)
         {
           start += strlen(START);
 #ifdef REQUIRE_SPACE
           if (!isspace(*start))
           {
-            fprintf(stderr, "ERROR: Found @START token without suffix spacing.\n");
+            fprintf(stderr, "ERROR: Found start without suffix spacing.\n");
             return NULL;
           }
 #endif
           stop = find(STOP, start, s.st_size - (start - addr), strlen(STOP));
-          /* NOTE this is assuming the last line of the a file is
-                  terminated with a newline, per unix tradition. */
           if (!stop)
-          { stop = find(NEWLINE, start, s.st_size - (start - addr), 1); }
+          {
+            stop = start;
+            while (*stop && *stop == '\n'
+               /* &&  !(*stop == '\r' */
+               /* ||    *stop == '\n') */
+              )
+            {
+              if (stop[0] == '\\')
+              {
+                if (stop[1] == '\n')
+                { stop += 2; }
+                /* else if (stop[1] == '\r' && stop[2] == '\n') */
+                /* { stop += 3; } */
+              }
+              ++stop;
+            }
+          }
 #ifdef REQUIRE_SPACE
           else
           {
             if (!isspace(*(stop - 1)))
             {
-              fprintf(stderr, "ERROR: Found STOP@ token without prefixing spacing.\n");
+              fprintf(stderr, "ERROR: Found stop without prefixing spacing.\n");
               return NULL;
             }
           }
