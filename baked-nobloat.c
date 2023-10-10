@@ -27,7 +27,7 @@
   "\t$@  returns target-file                (abc.x.txt)\n"  \
   "\t$*  returns target-file without suffix (^-> abc.x)\n"
 
-static char * g_filename, * g_short;
+char * g_filename, * g_short;
 
 static char *
 map(const char * fn, size_t * len)
@@ -65,60 +65,42 @@ find(const char * x, const char * buf, const size_t max, const size_t min)
 }
 
 static char *
-find_region(char * addr, size_t len)
+find_region(const char * fn, const char * start, const char * stop)
 {
-  char * buf = NULL;
-  const char * start, * stop;
-  if ((start = find(START, addr, len, strlen(START))))
+  size_t len = 0;
+  char * buf = NULL, * addr;
+  const char * pb, * pe;
+  addr = map(fn, &len);
+  if (addr != MAP_FAILED)
   {
-    start += strlen(START);
-    stop = find(STOP, start, len - (start - addr), strlen(STOP));
-    if (!stop)
+    if ((pb = find(start, addr, len, strlen(start))))
     {
-      stop = start;
-      while (*stop && *stop != '\n')
+      pb += strlen(start);
+      pe = find(stop, pb, len - (pb - addr), strlen(stop));
+      if (!pe)
       {
-        if (stop[0] == '\\' && stop[1] == '\n')
-        { stop += 2; }
-        ++stop;
+        pe = pb;
+        while (*pe && *pe != '\n')
+        {
+          if (pe[0] == '\\' && pe[1] == '\n')
+          { pe += 2; }
+          ++pe;
+        }
       }
+      if (pe)
+      { buf = strndup(pb, (pe - addr) - (pb - addr)); }
     }
-    if (stop)
-    { buf = strndup(start, (stop - addr) - (start - addr)); }
+    munmap(addr, len);
   }
   return buf;
 }
 
-static void
-swap(char * a, char * b)
-{
-  *a ^= *b;
-  *b ^= *a;
-  *a ^= *b;
-}
-
-static int
-root(char * root)
-{
-  int ret;
-  char x[1] = "\0";
-  size_t len = strlen(root);
-  while (len && root[len] != '/')
-  { --len; }
-  if (!len)
-  { return 0; }
-  swap(root + len, x);
-  ret = chdir(root);
-  swap(root + len, x);
-  return ret;
-}
 
 static char *
 insert(const char * new, char * str, size_t offset, size_t shift)
 {
   size_t len, max;
-  if (!new) { return str; }
-  if (!str) { return NULL; }
+  if (!new || !str) { return NULL; }
   len = strlen(new);
   max = (strlen(str) + 1 - offset - shift);
   memmove(str + offset + len, str + offset + shift, max);
@@ -202,29 +184,38 @@ expand(char * buf)
   return buf;
 }
 
-static int
-run(const char * buf)
+static void
+swap(char * a, char * b)
 {
-  fputs("Output:\n", stderr);
-  root(g_filename);
-  return system(buf);
+  *a ^= *b;
+  *b ^= *a;
+  *a ^= *b;
+}
+
+static int
+root(char * root)
+{
+  int ret;
+  char x[1] = "\0";
+  size_t len = strlen(root);
+  while (len && root[len] != '/')
+  { --len; }
+  if (!len)
+  { return 0; }
+  swap(root + len, x);
+  ret = chdir(root);
+  swap(root + len, x);
+  return ret;
 }
 
 int
 main(int argc, char ** argv)
 {
-  int ret = 0;
-  char * buf = NULL, * addr;
-  size_t len;
+  char * buf;
   setlocale(LC_ALL, "C");
-  if (argc < 2)
-  { goto help; }
+  if (argc < 2) { goto help; }
   g_filename = argv[1];
-  if ((addr = map(g_filename,  &len)))
-  {
-    buf = find_region(addr, len);
-    munmap(addr, len);
-  }
+  buf = find_region(g_filename, START, STOP);
   if (!buf)
   {
     if (errno)
@@ -234,11 +225,14 @@ main(int argc, char ** argv)
     return 1;
   }
   buf = expand(buf);
-  fprintf(stderr, "Exec: %s\n", buf ? buf + 1 : buf);
-  if ((ret = ret ? 0 : run(buf)))
-  { fprintf(stderr, "Result: %d\n", ret); }
+  root(argv[0]);
+  fprintf(stderr, "Exec: %s\n", buf);
+  if (!buf) { return 1; }
+  fputs("Output:\n", stderr);
+  fflush(stderr);
+  system(buf);
   free(buf);
-  return ret;
+  return 0;
 help:
   fprintf(stderr, "%s: %s", argv[0], HELP DESC);
   return 1;

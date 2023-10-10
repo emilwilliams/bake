@@ -83,56 +83,62 @@ find(const char * x, const char * buf, const size_t max, const size_t min)
 }
 
 static char *
-find_region(char * addr, size_t len)
+find_region(const char * fn)
 {
-  char * buf = NULL;
+  size_t len = 0;
+  char * buf = NULL, * addr;
   const char * start, * stop;
-  start = find(START, addr, len, strlen(START));
+  addr = map(fn, &len);
+  if (addr != MAP_FAILED)
+  {
+    start = find(START, addr, len, strlen(START));
 #ifdef OTHER_START
-  if (!start)
-  {
-    start = find(OTHER_START, addr, len, strlen(OTHER_START));
-    start = (const char *) /* DON'T QUESTION IT */
-      ((ptrdiff_t) (start - strlen(START) + strlen(OTHER_START)) * (start != 0));
-  }
+    if (!start)
+    {
+      start = find(OTHER_START, addr, len, strlen(OTHER_START));
+      start = (const char *) /* DON'T QUESTION IT */
+        ((ptrdiff_t) (start - strlen(START) + strlen(OTHER_START)) * (start != 0));
+    }
 #endif /* OTHER_START */
-  if (start)
-  {
-    start += strlen(START);
+    if (start)
+    {
+      start += strlen(START);
 #ifdef REQUIRE_SPACE
-    if (!isspace(*start))
-    {
-      fprintf(stderr, "ERROR: Found start without suffix spacing.\n");
-      return NULL;
-    }
-#endif
-    stop = find(STOP, start, len - (start - addr), strlen(STOP));
-    if (!stop)
-    {
-      stop = start;
-      while (*stop && *stop != '\n')
+      if (!isspace(*start))
       {
-        if (stop[0] == '\\' && stop[1] == '\n')
-        { stop += 2; }
-        ++stop;
+        fprintf(stderr, "ERROR: Found start without suffix spacing.\n");
+        goto stop;
       }
-    }
+#endif
+      stop = find(STOP, start, len - (start - addr), strlen(STOP));
+      if (!stop)
+      {
+        stop = start;
+        while (*stop && *stop != '\n')
+        {
+          if (stop[0] == '\\' && stop[1] == '\n')
+          { stop += 2; }
+          ++stop;
+        }
+      }
 #ifdef REQUIRE_SPACE
-    else
-    {
-      if (!isspace(*(stop - 1)))
+      else
       {
-        fprintf(stderr, "ERROR: Found stop without prefixing spacing.\n");
-        return NULL;
+        if (!isspace(*(stop - 1)))
+        {
+          fprintf(stderr, "ERROR: Found stop without prefixing spacing.\n");
+          goto stop;
+        }
       }
-    }
 #endif
-    if (stop)
-    { buf = strndup(start, (stop - addr) - (start - addr)); }
+      if (stop)
+      { buf = strndup(start, (stop - addr) - (start - addr)); }
+    }
+  stop:
+    munmap(addr, len);
   }
   return buf;
 }
-
 
 static void
 swap(char * a, char * b)
@@ -303,8 +309,8 @@ int
 main(int argc, char ** argv)
 {
   int ret = 0;
-  char * buf = NULL, * addr;
-  size_t len;
+  char * buf;
+
   assert(setlocale(LC_ALL, "C"));
 
   if (argc < 2
@@ -323,11 +329,7 @@ main(int argc, char ** argv)
     { goto help; }
   }
 
-  if ((addr = map(g_filename,  &len)))
-  {
-    buf = find_region(addr, len);
-    munmap(addr, len);
-  }
+  buf = find_region(g_filename);
 
   if (!buf)
   {
