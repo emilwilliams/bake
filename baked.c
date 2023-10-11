@@ -292,7 +292,7 @@ strip(char * buf)
   { --i; }
   buf[i] = '\0';
   for (i = 0; isspace(buf[i]); ++i);
-  return i;
+  return i - (buf[i - 1] == '\n');
 }
 
 static int
@@ -341,7 +341,7 @@ main(int argc, char ** argv)
   buf = realloc(buf, expand_size(buf, argc, argv));
   local_assert(buf, 1);
   buf = expand(buf);
-  fprintf(stderr, "Exec: %s\n", buf + strip(buf) - (buf[0] == '\n'));
+  fprintf(stderr, "Exec: %s\n", buf + strip(buf));
   if ((ret = ret ? 0 : run(buf)))
   { fprintf(stderr, "Result: %d\n", ret); }
 
