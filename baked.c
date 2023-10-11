@@ -48,7 +48,7 @@
 static char * g_filename, * g_short, * g_all;
 
 static char *
-map(const char * fn, size_t * len)
+map(char * fn, size_t * len)
 {
   struct stat s;
   int fd;
@@ -68,10 +68,10 @@ map(const char * fn, size_t * len)
   return addr;
 }
 
-static const char *
-find(const char * x, const char * buf, const size_t max, const size_t min)
+static char *
+find(char * x, char * buf, size_t max, size_t min)
 {
-  const char * start = buf;
+  char * start = buf;
   for (; *buf; ++buf)
   {
     if (max - (buf - start) > min && !strncmp(buf, x, min))
@@ -81,20 +81,20 @@ find(const char * x, const char * buf, const size_t max, const size_t min)
 }
 
 static char *
-find_region(const char * fn)
+find_region(char * fn)
 {
   size_t len = 0;
   char * buf = NULL, * addr;
-  const char * start, * stop;
+  char * start, * stop;
   addr = map(fn, &len);
-  if (addr != MAP_FAILED)
+  if ((ptrdiff_t) addr > 0)
   {
     start = find(START, addr, len, strlen(START));
 #ifdef OTHER_START
     if (!start)
     {
       start = find(OTHER_START, addr, len, strlen(OTHER_START));
-      start = (const char *) /* DON'T QUESTION IT */
+      start = (char *) /* DON'T QUESTION IT */
         ((ptrdiff_t) (start - strlen(START) + strlen(OTHER_START)) * (start != 0));
     }
 #endif /* OTHER_START */
@@ -163,7 +163,7 @@ root(char * root)
 }
 
 static char *
-insert(const char * new, char * str, size_t offset, size_t shift)
+insert(char * new, char * str, size_t offset, size_t shift)
 {
   size_t len, max;
   local_assert(new, str);
@@ -296,7 +296,7 @@ strip(char * buf)
 }
 
 static int
-run(const char * buf)
+run(char * buf)
 {
   fputs("Output:\n", stderr);
   root(g_filename);
