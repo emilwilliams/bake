@@ -30,7 +30,7 @@
 char * g_filename, * g_short;
 
 static char *
-map(const char * fn, size_t * len)
+map(char * fn, size_t * len)
 {
   struct stat s;
   int fd;
@@ -50,10 +50,10 @@ map(const char * fn, size_t * len)
   return addr;
 }
 
-static const char *
-find(const char * x, const char * buf, const size_t max, const size_t min)
+static char *
+find(char * x, char * buf, size_t max, size_t min)
 {
-  const char * start = buf;
+  char * start = buf;
   for (; *buf; ++buf)
   {
     if (max - (buf - start) > min && !strncmp(buf, x, min))
@@ -63,11 +63,11 @@ find(const char * x, const char * buf, const size_t max, const size_t min)
 }
 
 static char *
-find_region(const char * fn, const char * start, const char * stop)
+find_region(char * fn, char * start, char * stop)
 {
   size_t len = 0;
   char * buf = NULL, * addr;
-  const char * pb, * pe;
+  char * pb, * pe;
   addr = map(fn, &len);
   if (addr != MAP_FAILED)
   {
@@ -85,7 +85,7 @@ find_region(const char * fn, const char * start, const char * stop)
 
 
 static char *
-insert(const char * new, char * str, size_t offset, size_t shift)
+insert(char * new, char * str, size_t offset, size_t shift)
 {
   size_t len, max;
   if (!new || !str) { return NULL; }
