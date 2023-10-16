@@ -3,8 +3,9 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * Using COMPILECMD and including the # STOP for bake/shake support
- * @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS # STOP@
+ * Using COMPILECMD and including the # STOP for bake & shake support
+ * @COMPILECMD pwd; cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS # @STOP
+ * @EXEC pwd; cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS # @STOP
  */
 
 #include <assert.h>
@@ -27,11 +28,11 @@
 #define OTHER_START "@EXEC"
 
 #define START "@COMPILECMD"
-#define  STOP "STOP@"
+#define  STOP "@STOP"
 #define  HELP                                                                          \
     "target-file [arguments ...]\n"                                                    \
     "Use the format `@EXEC cmd ...' within the target-file, this will execute the\n"   \
-    "rest of line, or if found within the file, until the STOP@ marker. You may use\n" \
+    "rest of line, or if found within the file, until the @STOP marker. You may use\n" \
     "@COMPILECMD instead of @EXEC.  Whitespace is required after and before both\n"    \
     "operators always.\n"
 
@@ -58,8 +59,8 @@ map(char * fn, size_t * len)
   if (fd != -1)
   {
     if (!fstat(fd,&s)
-        &&   s.st_mode & S_IFREG
-        &&   s.st_size)
+    &&   s.st_mode & S_IFREG
+    &&   s.st_size)
     {
       *len = s.st_size;
       addr = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
@@ -75,7 +76,8 @@ find(char * x, char * buf, size_t max, size_t min)
   char * start = buf;
   for (; *buf; ++buf)
   {
-    if (max - (buf - start) > min && !strncmp(buf, x, min))
+    if (max - (buf - start) > min
+    && !strncmp(buf, x, min))
     { return buf; }
   }
   return NULL;
@@ -113,9 +115,11 @@ find_region(char * fn)
       if (!stop)
       {
         stop = start;
-        while (*stop && *stop != '\n')
+        while (*stop
+            && *stop != '\n')
         {
-          if (stop[0] == '\\' && stop[1] == '\n')
+          if (stop[0] == '\\'
+           && stop[1] == '\n')
           { stop += 2; }
           ++stop;
         }
@@ -148,18 +152,21 @@ swap(char * a, char * b)
 }
 
 static int
-root(char * root)
+root(char ** rootp)
 {
-  int ret;
   char x[1] = "\0";
+  char * root = *rootp;
   size_t len = strlen(root);
-  while (len && root[len] != '/')
+  int ret;
+  while (len
+      && root[len] != '/')
   { --len; }
   if (!len)
   { return 0; }
   swap(root + len, x);
   ret = chdir(root);
   swap(root + len, x);
+  *rootp += len + 1;
   return ret;
 }
 
@@ -300,7 +307,6 @@ static int
 run(char * buf)
 {
   fputs("Output:\n", stderr);
-  root(g_filename);
   return system(buf);
 }
 
@@ -310,7 +316,7 @@ main(int argc, char ** argv)
   int ret = 0;
   char * buf;
 
-  assert(setlocale(LC_ALL, "C"));
+  setlocale(LC_ALL, "C");
 
   if (argc < 2
   ||  !strcmp(argv[1], "-h")
@@ -339,6 +345,7 @@ main(int argc, char ** argv)
     return 1;
   }
 
+  root(&g_filename);
   buf = realloc(buf, expand_size(buf, argc, argv));
   local_assert(buf, 1);
   buf = expand(buf);
