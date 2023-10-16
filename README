@@ -1,8 +1,9 @@
 Bake scripts into files.
 
-Executes @EXEC to the end of the line or STOP@ within in any given file.
-If there is no STOP@, it'll simply execute until the end of line, supports
-backslashes to include additional lines.
+Executes @EXEC to the end of the line or @STOP within in any given
+file. you also may use @COMPILECMD instead, it has a higher priority
+than @EXEC. Newline-only supports backslashes to include additional
+lines.
 
 you may see a real example in the primary and only source file: `bake.c'.
 this is not targeted toward any language and should be fairly flexible,
@@ -34,15 +35,15 @@ only one option may be in use at a time, and must come as the first argument.
 Shake
 
 Bake was inspired by the Bash-based Shake utility (formerly eMake,
-he liked my suggestion for a name), written by an anon, which you may
-view at: <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
+he liked my suggestion for a name), written which you may view at:
+<http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
 
 Bake includes Shake, both in installation, and as a bootstrapper. It
-is included under creator's permission. It is not a replacement for
-Bake, but it is platform independent in regards to it's use of Bash.
+is included under authorization of it's creator. It is not a replacement
+for Bake, but it is platform independent in regards to its use of Bash.
 
-Shake is a bash based build utility which only seaches for, and executes
-the first line including @COMPILECMD. It supports $@, and $*.
+Shake is limited in comparison to Bake, the first line including @COMPILECMD.
+It supports $@, and $*. It does not support @STOP in any way.
 
 Bake is licensed under the GPLv3, See LICENSE.
 
