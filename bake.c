@@ -162,7 +162,7 @@ find_region(map_t m) {
       fprintf(stderr, "ERROR: Found start without suffix spacing.\n");
       return buf;
     }
-#endif
+#endif /* REQUIRE_SPACE */
     stop = find(STOP, start, start + m.len - (start - m.str));
     if (!stop) {
       stop = start;
@@ -174,14 +174,13 @@ find_region(map_t m) {
       }
     }
 #ifdef REQUIRE_SPACE
-    else {
-      if (!isspace(*(stop - 1))) {
-        fprintf(stderr, "ERROR: Found stop without prefixing spacing.\n");
-        return buf;
-      }
+    else if (!isspace(*(stop - 1))) {
+      fprintf(stderr, "ERROR: Found stop without prefixing spacing.\n");
+      return buf;
     }
-#endif
-    if (stop) { buf = strndup(start, (stop - m.str) - (start - m.str)); }
+#endif /* REQUIRE_SPACE */
+    if (stop)
+    { buf = strndup(start, (stop - m.str) - (start - m.str)); }
   }
   return buf;
 }
@@ -208,7 +207,8 @@ expand_size(char * buf, int argc, char ** argv) {
   size_t i, len, max;
   len = max = strlen(buf) + 1;
   for (i = 0; i < len; ++i) {
-    if (buf[i] == '\\') { i += 2; continue; }
+    if (buf[i] == '\\')
+    { i += 2; continue; }
     else if (buf[i] == '$') {
       switch (buf[++i]) {
       case '@':
@@ -233,7 +233,8 @@ expand(char * buf) {
   size_t i;
   char * ptr = NULL;
   for (i = 0; buf[i]; ++i) {
-    if (buf[i] == '\\') { i += 2; continue; }
+    if (buf[i] == '\\')
+    { i += 2; continue; }
     else if (buf[i] == '$') {
       switch (buf[++i]) {
       case '@':
@@ -306,8 +307,11 @@ main(int argc, char ** argv) {
   }
 
   root(&g_filename);
-  buf = realloc(buf, expand_size(buf, argc, argv));
-  if (!buf) { free(g_short); free(g_all); return 1; }
+  { char * buf2 = buf;
+    buf = realloc(buf, expand_size(buf, argc, argv));
+    if (!buf)
+    { free(buf2); free(g_short); free(g_all); return 1; }
+  }
   buf = expand(buf);
   fprintf(stderr, "Exec: %s\n", buf + strip(buf));
   if ((ret = ret ? 0 : run(buf)))
