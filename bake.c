@@ -3,9 +3,11 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * Using COMPILECMD and including the # STOP for bake & shake support
- * @COMPILECMD pwd; cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS # @STOP
- * @EXEC pwd; cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS # @STOP
+ * For Bake
+ * @EXEC cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS @STOP
+ *
+ * For Shake
+ * @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS
  */
 
 #include <assert.h>
@@ -25,9 +27,9 @@
 /* Require space after COMPILECMD/EXEC and before STOP (no space required around newline) */
 #define REQUIRE_SPACE
 /* May be be left undefined, comes second */
-#define OTHER_START "@EXEC"
+/* #define OTHER_START "@COMPILECMD" */
 
-#define START "@COMPILECMD"
+#define START "@EXEC"
 #define  STOP "@STOP"
 #define  HELP                                                                          \
     "target-file [arguments ...]\n"                                                    \
@@ -252,6 +254,8 @@ expand(char * buf) {
   return buf;
 }
 
+/* Strips all prefixing and leading whitespace.
+ * Except if the last character beforehand is a newline. */
 static size_t
 strip(char * buf) {
   size_t i = strlen(buf);
