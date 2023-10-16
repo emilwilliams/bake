@@ -7,7 +7,7 @@ GREEN='\033[32m'
 BOLD='\033[1m'
 NORMAL='\033[0m'
 
-MARKNAME="@COMPILECMD"
+MARKNAME="@SHAKE"
 MARK="${MARKNAME} "
 MARKSTR="${BLUE}${MARKNAME}${NORMAL}"
  
@@ -35,6 +35,16 @@ if [[ $1 == "-h" ]] || [[ $1 == "--help" ]]; then
     exit 0
 fi
 
+run=1
+if [[ $1 == "-n" ]] || [[ $1 == "--dry-run" ]]; then
+    if [[ $# -lt 2 ]]; then
+        usage
+        exit 1
+    fi
+    run=0
+    shift 1
+fi
+
 input_file=$1
 shift 1
  
@@ -51,8 +61,10 @@ line=${line//\$+/$@}
 if [[ -n $line ]]; then
     command="${line#*${MARK}}"
     echo "Exec: $command"
-    echo "Output:"
-    eval "$command"
+    if [[ $run -eq 1 ]]; then
+        echo "Output:"
+        eval "$command"
+    fi
 else
     echo -e "${MARKSTR} is not defined." >&2
 fi

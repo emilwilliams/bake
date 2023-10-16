@@ -3,11 +3,8 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * For Bake
- * @EXEC cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS @STOP
- *
- * For Shake
- * @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS
+ * @BAKE cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS @STOP
+ * @SHAKE cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS
  */
 
 #include <assert.h>
@@ -26,16 +23,14 @@
 
 /* Require space after COMPILECMD/EXEC and before STOP (no space required around newline) */
 #define REQUIRE_SPACE
-/* May be be left undefined, comes second */
-/* #define OTHER_START "@COMPILECMD" */
 
-#define START "@EXEC"
+#define START "@BAKE"
 #define  STOP "@STOP"
 #define  HELP                                                                          \
     "target-file [arguments ...]\n"                                                    \
-    "Use the format `@EXEC cmd ...' within the target-file, this will execute the\n"   \
+    "Use the format `@BAKE cmd ...' within the target-file, this will execute the\n"   \
     "rest of line, or if found within the file, until the @STOP marker. You may use\n" \
-    "@COMPILECMD instead of @EXEC.  Whitespace is required after and before both\n"    \
+    "@COMPILECMD instead of @BAKE.  Whitespace is required after and before both\n"    \
     "operators always.\n"
 
 #define DESC                                                \
@@ -148,13 +143,6 @@ find_region(map_t m) {
   char * buf = NULL;
   char * start, * stop;
   start = find(START, m.str, m.str + m.len);
-#ifdef OTHER_START
-  if (!start) {
-    start = find(OTHER_START, m.str, m.str + m.len);
-    start = (char *) /* DON'T QUESTION IT */
-      ((ptrdiff_t) (start - strlen(START) + strlen(OTHER_START)) * (start != 0));
-  }
-#endif /* OTHER_START */
   if (start) {
     start += strlen(START);
 #ifdef REQUIRE_SPACE

@@ -43,7 +43,8 @@ is included under authorization of it's creator. It is not a replacement
 for Bake, but it is platform independent in regards to its use of Bash.
 
 Shake is limited in comparison to Bake, the first line including @COMPILECMD.
-It supports $@, and $*. It does not support @STOP in any way.
+It supports all Name/Arg Extensions, and all options. It does not support
+@STOP in any way.
 
 Bake is licensed under the GPLv3, See LICENSE.
 
