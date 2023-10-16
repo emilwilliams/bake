@@ -1,0 +1,56 @@
+#!/bin/bash
+ 
+BLUE='\033[34m'
+GREEN='\033[32m'
+BOLD='\033[1m'
+NORMAL='\033[0m'
+ 
+MARK="@COMPILECMD "
+MARKSTR="${BLUE}@COMPILECMD${NORMAL}"
+ 
+enable -n echo
+ 
+usage() {
+    IFSTR="${GREEN}<input_file>${NORMAL}"
+    echo -e "${BOLD}Usage: $0 <input_file>${NORMAL}" >&2
+    echo -e "\t$0 runs the value of ${MARKSTR}." >&2
+    echo -e "\tThe point of this script is ease to compialation of singe source file (toy) programs." >&2
+    echo -e "\tThe value of ${MARKSTR} is read from ${IFSTR} in is whatever comes after '${MARK}' until the end of the line." >&2
+    echo -e "\tInside the value of ${MARKSTR} all mentions of special placeholders are replaced:" >&2
+    echo -e "\t\t${BLUE}\$@${NORMAL} - ${IFSTR}"
+    echo -e "\t\t${BLUE}\$*${NORMAL} - ${IFSTR} with the last extension cut off"
+}
+ 
+ 
+ 
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 1
+fi
+ 
+if [[ $1 == "-h" ]] || [[ $1 == "--help" ]]; then
+    usage
+    exit 0
+fi
+ 
+ 
+ 
+input_file=$1
+ 
+if [[ ! -f $input_file ]]; then
+    echo -e "Input file '$input_file' does not exist." >&2
+    exit 1
+fi
+ 
+line=$(grep "$MARK" "$input_file" | head -1)
+line=${line//\$@/$input_file}
+line=${line//\$\*/${input_file%.*}}
+ 
+if [[ -n $line ]]; then
+    command="${line#*@COMPILECMD }"
+ 
+    echo "$command"
+    eval "$command"
+else
+    echo -e "${MARKSTR} is not defined." >&2
+fi

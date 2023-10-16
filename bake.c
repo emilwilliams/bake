@@ -1,9 +1,10 @@
-/* baked.c - Ever burned a cake?
+/* bake.c - Ever burned a cake?
  * Copyright 2023 Emil Williams
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * @EXEC cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS STOP@
+ * Using COMPILECMD and including the # STOP for bake/shake support
+ * @COMPILECMD cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS # STOP@
  */
 
 #include <assert.h>
@@ -20,12 +21,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-/* Require space after @ABC and before STOP@ (no space required around newline) */
+/* Require space after COMPILECMD/EXEC and before STOP (no space required around newline) */
 #define REQUIRE_SPACE
-/* May be undefined */
-#define OTHER_START "@COMPILECMD"
+/* May be be left undefined, comes second */
+#define OTHER_START "@EXEC"
 
-#define START "@EXEC"
+#define START "@COMPILECMD"
 #define  STOP "STOP@"
 #define  HELP                                                                          \
     "target-file [arguments ...]\n"                                                    \
