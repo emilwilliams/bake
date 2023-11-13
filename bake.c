@@ -3,8 +3,10 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * @BAKE cc -std=gnu89 -O2 $@ -o $* $+ # @STOP
+ * @BAKE cc -std=c89 -O2 $@ -o $* $+ # @STOP
  */
+
+#define _POSIX_C_SOURCE 200809L
 
 #include <assert.h>
 #include <ctype.h>
@@ -121,14 +123,14 @@ static map_t
 map(char * fn) {
   struct stat s;
   int fd;
-  map_t m = {0};
+  map_t m = (map_t) {0};
   fd = open(fn, O_RDONLY);
   if (fd != -1) {
     if (!fstat(fd,&s)
     &&   s.st_mode & S_IFREG
     &&   s.st_size) {
-      m.len = s.st_size;
-      m.str = (char *) mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
+      m.len = (size_t) s.st_size;
+      m.str = (char *) mmap(NULL, m.len, PROT_READ, MAP_SHARED, fd, 0);
     }
     close(fd);
   }
@@ -139,6 +141,7 @@ map(char * fn) {
 
 static char *
 find_region(map_t m) {
+  extern char * strndup(const char * s, size_t n); /* for splint */
   char * buf = NULL, * start, * stop;
 
   start = find(START, m.str, m.str + m.len);
@@ -165,14 +168,14 @@ find_region(map_t m) {
     }
 
     if (stop)
-    { buf = strndup(start, (stop - m.str) - (start - m.str)); }
+    { buf = strndup(start, (size_t) (stop - m.str) - (start - m.str)); }
   }
   return buf;
 }
 
 static int
 root(char ** rootp) {
-  char x[1] = "\0";
+  char x[1] = {'\0'};
   char * root = *rootp;
   size_t len = strlen(root);
   int ret;
@@ -280,7 +283,7 @@ main(int argc, char ** argv) {
   char * buf = NULL;
 
   /* changing this to "" creates many additional allocations */
-  setlocale(LC_ALL, "C");
+  (void) setlocale(LC_ALL, "C");
 
   if (argc < 2
   ||  !strcmp(argv[1], "-h")
