@@ -1,51 +1,57 @@
+--- Bake ---
+
 Bake scripts into files.
 
-Executes @EXEC to the end of the line or @STOP within in any given
-file. you also may use @COMPILECMD instead, it has a higher priority
-than @EXEC. Newline-only supports backslashes to include additional
-lines.
+Executes @BAKE to the end of the line or @STOP within in any given file.
+
+You may have multi-line commands, by either including a leading @STOP
+or ending each line with a backslash.
+
+The execution takes place at the root of the target file, so if you have:
+`test/file.c', and then execution takes place at `test'.
 
 you may see a real example in the primary and only source file: `bake.c'.
 this is not targeted toward any language and should be fairly flexible,
 especially when multi-line comments are available.
 
-The execution takes place at the root of the target file, so if you have:
-/my/test/file.c, and then execution takes place at /my/test.
+Binary files (files that contain characters < ' ' or > '~') are supported.
 
-Buildng
+--- Buildng ---
 
 Bootstrapping may be done with Shake, simply run `./shake ./bake.c'
 
 Initial building may be done by examining and running `install.sh',
-if you don't want to install it right away, run `SUDO= TARGET=. ./install.sh'
+or if you don't want to install it right away, run `SUDO= TARGET=. ./install.sh'
 
-Name/Arg Extension
+--- I/O Extension ---
+
+I/O provides various descriptive factors about the current context for the command,
+primarily the full and shortened filename, and the remaining arguments to the process.
 
 $@: the name of the executed file
 $*: the text of the filename before the last dot
 $+: the remaining arguments to Bake
 
-Options Extension
+They are most useful for a template command, such as: @BAKE cc $@ -o $* $+
+
+--- Options ---
 
 only one option may be in use at a time, and must come as the first argument.
 
 -h, --help: displays help message, similiarly to empty input.
 -n, --dry-run: DRYRUN, does NOT run anything!
 
-Shake
+--- Shake ---
 
 Bake was inspired by the Bash-based Shake utility (formerly eMake,
-he liked my suggestion for a name), written which you may view at:
+he liked my suggestion for a name).  It is included under authorization
+of it's creator.  The original version of Shake may be found at:
 <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
 
-Bake includes Shake, both in installation, and as a bootstrapper. It
-is included under authorization of it's creator. It is not a replacement
-for Bake, but it is platform independent in regards to its use of Bash.
+Bake includes a modified Shake, both in installation, and as a bootstrapper.
+The modified version includes all features of Bake with the exceptions of
+multi-line commands.  It is not a replacement for Bake.
 
-Shake is limited in comparison to Bake, the first line including @COMPILECMD.
-It supports all Name/Arg Extensions, and all options. It does not support
-@STOP in any way.
-
-Bake is licensed under the GPLv3, See LICENSE.
+Bake is licensed under the GPLv3-only, See LICENSE.
 
 Bake began on September 13th, 2023.
