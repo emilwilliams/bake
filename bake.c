@@ -39,8 +39,6 @@
   "\t$*  returns target-file without suffix (^-> abc.x)\n"  \
   "\t$+  returns arguments\n"
 
-static char * g_filename;
-
 /*** Utility functions ***/
 
 static void
@@ -72,7 +70,7 @@ insert(char * new, char * str, size_t offset, size_t shift) {
 
 /*** g_short, g_all Functions ***/
 
-static char * g_short, * g_all;
+static char * g_filename, * g_short, * g_all;
 
 static char *
 shorten(char * fn) {
@@ -95,12 +93,15 @@ all_args(size_t argc, char ** argv) {
   char * all = NULL;
   if (argc > 2) {
     size_t i, len = argc;
-    for (i = 2; i < argc; ++i) { len += strlen(argv[i]); }
+
+    for (i = 2; i < argc; ++i)
+    { len += strlen(argv[i]); }
+
     all = malloc(len + 1);
     if (!all) { return NULL; }
+
     all[len] = '\0';
-    len = 0;
-    for (i = 2; i < argc; ++i) {
+    for (len = 0, i = 2; i < argc; ++i) {
       strcpy(all + len, argv[i]);
       len += strlen(argv[i]) + 1;
       if (i + 1 < argc) { all[len - 1] = ' '; }
@@ -138,27 +139,31 @@ map(char * fn) {
 
 static char *
 find_region(map_t m) {
-  char * buf = NULL;
-  char * start, * stop;
+  char * buf = NULL, * start, * stop;
+
   start = find(START, m.str, m.str + m.len);
+
   if (start) {
     start += strlen(START);
+
 #ifdef REQUIRE_SPACE
     if (!isspace(*start)) {
-      fprintf(stderr, "ERROR: Found start without suffix spacing.\n");
+      fprintf(stderr, "%s: Found start without suffix spacing.\n", g_filename);
       return buf;
     }
 #endif /* REQUIRE_SPACE */
+
     stop = find(STOP, start, start + m.len - (start - m.str));
+
     if (!stop) {
       stop = start;
-      while (*stop
-         && *stop != '\n') {
+      while (*stop && *stop != '\n') {
         if (stop[0] == '\\'
-        && stop[1] == '\n') { stop += 2; }
+        &&  stop[1] == '\n') { stop += 2; }
         ++stop;
       }
     }
+
     if (stop)
     { buf = strndup(start, (stop - m.str) - (start - m.str)); }
   }
@@ -171,13 +176,16 @@ root(char ** rootp) {
   char * root = *rootp;
   size_t len = strlen(root);
   int ret;
-  while (len
-     && root[len] != '/')
+
+  while (len && root[len] != '/')
   { --len; }
+
   if (!len) { return 0; }
+
   swap(root + len, x);
   ret = chdir(root);
   swap(root + len, x);
+
   *rootp += len + 1;
   return ret;
 }
@@ -185,21 +193,26 @@ root(char ** rootp) {
 static size_t
 expand_size(char * buf, int argc, char ** argv) {
   size_t i, len, max;
+
   len = max = strlen(buf) + 1;
+
   for (i = 0; i < len; ++i) {
-    if (buf[i] == '\\')
-    { i += 2; continue; }
-    else if (buf[i] == '$') {
+    if (buf[i] == '\\') {
+      i += 2;
+      continue;
+    } else if (buf[i] == '$') {
       switch (buf[++i]) {
       case '@':
         max += strlen(g_filename);
         break;
       case '*':
-        if (!g_short) { g_short = shorten(g_filename); }
+        if (!g_short)
+        { g_short = shorten(g_filename); }
         max += g_short ? strlen(g_short) : 0;
         break;
       case '+':
-        if (!g_all) { g_all = all_args((size_t) argc, argv); }
+        if (!g_all)
+        { g_all = all_args((size_t) argc, argv); }
         max += g_all ? strlen(g_all) : 0;
         break;
       }
@@ -212,10 +225,12 @@ static char *
 expand(char * buf) {
   size_t i;
   char * ptr = NULL;
+
   for (i = 0; buf[i]; ++i) {
-    if (buf[i] == '\\')
-    { i += 2; continue; }
-    else if (buf[i] == '$') {
+    if (buf[i] == '\\') {
+      i += 2;
+      continue;
+    } else if (buf[i] == '$') {
       switch (buf[++i]) {
       case '@':
         ptr = g_filename;
@@ -240,10 +255,16 @@ expand(char * buf) {
 static size_t
 strip(char * buf) {
   size_t i = strlen(buf);
-  if (!i) { return 0; }
-  while (isspace(buf[i - 1])) { --i; }
+
+  if (!i)
+  { return 0; }
+
+  while (isspace(buf[i - 1]))
+  { --i; }
+
   buf[i] = '\0';
   for (i = 0; isspace(buf[i]); ++i);
+
   return i - (buf[i - 1] == '\n');
 }
 
