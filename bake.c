@@ -3,8 +3,7 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * @BAKE cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS @STOP
- * @SHAKE cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS
+ * @BAKE cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS # @STOP
  */
 
 #include <assert.h>
@@ -29,9 +28,8 @@
 #define  HELP                                                                          \
     "target-file [arguments ...]\n"                                                    \
     "Use the format `@BAKE cmd ...' within the target-file, this will execute the\n"   \
-    "rest of line, or if found within the file, until the @STOP marker. You may use\n" \
-    "@COMPILECMD instead of @BAKE.  Whitespace is required after and before both\n"    \
-    "operators always.\n"
+    "rest of line, or if found within the file, until the @STOP marker.\n"             \
+    /* "Whitespace is required after and before both markers respectively.\n" */
 
 #define DESC                                                \
   "Options [Must always be first]\n"                        \
@@ -266,7 +264,7 @@ main(int argc, char ** argv) {
   int ret = 0;
   char * buf = NULL;
 
-  setlocale(LC_ALL, "C");
+  setlocale(LC_ALL, "");
 
   if (argc < 2
   ||  !strcmp(argv[1], "-h")
@@ -281,7 +279,9 @@ main(int argc, char ** argv) {
     else { goto help; }
   }
 
-  { map_t m = map(argv[1]);
+  root(&g_filename);
+
+  { map_t m = map(g_filename);
     if (m.str) {
       buf = find_region(m);
       munmap(m.str, m.len);
@@ -289,12 +289,11 @@ main(int argc, char ** argv) {
   }
 
   if (!buf) {
-    if (errno) { perror(argv[0]); }
+    if (errno) { fprintf(stderr, "%s: %s", g_filename, strerror(errno)); }
     else { fprintf(stderr, "%s: File unrecognized.\n", argv[0]); }
     return 1;
   }
 
-  root(&g_filename);
   { char * buf2 = buf;
     buf = realloc(buf, expand_size(buf, argc, argv));
     if (!buf)
