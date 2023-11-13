@@ -3,7 +3,7 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * @BAKE cc $@ -o $* -std=gnu89 -O2 -Wall -Wextra -Wpedantic -pipe $CFLAGS # @STOP
+ * @BAKE cc -std=gnu89 -O2 $@ -o $* $+ # @STOP
  */
 
 #include <assert.h>
@@ -20,7 +20,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-/* Require space after COMPILECMD/EXEC and before STOP (no space required around newline) */
+/* Require space after START */
 #define REQUIRE_SPACE
 
 #define START "@BAKE"
@@ -120,18 +120,18 @@ static map_t
 map(char * fn) {
   struct stat s;
   int fd;
-  map_t fs = {0};
+  map_t m = {0};
   fd = open(fn, O_RDONLY);
   if (fd != -1) {
     if (!fstat(fd,&s)
     &&   s.st_mode & S_IFREG
     &&   s.st_size) {
-      fs.len = s.st_size;
-      fs.str = (char *) mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
+      m.len = s.st_size;
+      m.str = (char *) mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
     }
     close(fd);
   }
-  return fs;
+  return m;
 }
 
 /*** Important Functions ***/
@@ -159,12 +159,6 @@ find_region(map_t m) {
         ++stop;
       }
     }
-#ifdef REQUIRE_SPACE
-    else if (!isspace(*(stop - 1))) {
-      fprintf(stderr, "ERROR: Found stop without prefixing spacing.\n");
-      return buf;
-    }
-#endif /* REQUIRE_SPACE */
     if (stop)
     { buf = strndup(start, (stop - m.str) - (start - m.str)); }
   }
@@ -264,7 +258,8 @@ main(int argc, char ** argv) {
   int ret = 0;
   char * buf = NULL;
 
-  setlocale(LC_ALL, "");
+  /* changing this to "" creates many additional allocations */
+  setlocale(LC_ALL, "C");
 
   if (argc < 2
   ||  !strcmp(argv[1], "-h")
@@ -279,8 +274,6 @@ main(int argc, char ** argv) {
     else { goto help; }
   }
 
-  root(&g_filename);
-
   { map_t m = map(g_filename);
     if (m.str) {
       buf = find_region(m);
@@ -290,18 +283,21 @@ main(int argc, char ** argv) {
 
   if (!buf) {
     if (errno) { fprintf(stderr, "%s: %s", g_filename, strerror(errno)); }
-    else { fprintf(stderr, "%s: File unrecognized.\n", argv[0]); }
+    else { fprintf(stderr, "%s: File unrecognized.\n", g_filename); }
     return 1;
   }
 
+  root(&g_filename);
   { char * buf2 = buf;
     buf = realloc(buf, expand_size(buf, argc, argv));
     if (!buf)
     { free(buf2); free(g_short); free(g_all); return 1; }
   }
   buf = expand(buf);
-  fprintf(stderr, "Exec: %s\n", buf + strip(buf));
-  if ((ret = ret ? 0 : run(buf)))
+
+  fprintf(stderr, "Bake: %s\n", buf + strip(buf));
+  ret = ret ? 0 : run(buf);
+  if (ret)
   { fprintf(stderr, "Result: %d\n", ret); }
 
   free(buf);
