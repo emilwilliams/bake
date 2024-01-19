@@ -3,7 +3,7 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * @BAKE cc -std=c89 -O2 $@ -o $* $+ # @STOP
+ * @BAKE cc -std=c89 -O2 -I. $@ -o $* $+ # @STOP
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -22,29 +22,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-/* Require space after START */
-#define REQUIRE_SPACE
-/* Enable colors */
-#define COLOR
-
-#ifdef COLOR
-#define    RED "\e[91m"
-#define  GREEN "\e[92m"
-#define YELLOW "\e[93m"
-#define    DIM "\e[2m"
-#define   BOLD "\e[1m"
-#define  RESET "\e[0m"
-#else
-#define    RED
-#define  GREEN
-#define YELLOW
-#define    DIM
-#define   BOLD
-#define  RESET
-#endif
+#include "config.h"
 
 #define START "@BAKE"
 #define  STOP "@STOP"
+
 #define  HELP                                                                          \
     BOLD "target-file" RESET " [arguments ...]\n"                                      \
     "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
