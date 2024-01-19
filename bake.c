@@ -24,22 +24,39 @@
 
 /* Require space after START */
 #define REQUIRE_SPACE
+/* Enable colors */
+#define COLOR
+
+#ifdef COLOR
+#define    RED "\e[91m"
+#define  GREEN "\e[92m"
+#define YELLOW "\e[93m"
+#define    DIM "\e[2m"
+#define   BOLD "\e[1m"
+#define  RESET "\e[0m"
+#else
+#define    RED
+#define  GREEN
+#define YELLOW
+#define    DIM
+#define   BOLD
+#define  RESET
+#endif
 
 #define START "@BAKE"
 #define  STOP "@STOP"
 #define  HELP                                                                          \
-    "target-file [arguments ...]\n"                                                    \
-    "Use the format `@BAKE cmd ...' within the target-file, this will execute the\n"   \
-    "rest of line, or if found within the file, until the @STOP marker.\n"             \
-    /* "Whitespace is required after and before both markers respectively.\n" */
+    BOLD "target-file" RESET " [arguments ...]\n"                                      \
+    "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
+    "rest of line, or if found within the file, until the " BOLD "@STOP" RESET " marker.\n"             \
 
-#define DESC                                                \
-  "Options [Must always be first]\n"                        \
-  "\t-h --help, -n --dry-run\n"                             \
-  "Expansions\n"                                            \
-  "\t$@  returns target-file                (abc.x.txt)\n"  \
-  "\t$*  returns target-file without suffix (^-> abc.x)\n"  \
-  "\t$+  returns arguments\n"
+#define DESC                                                 \
+  "Options [Must always be first]\n"                         \
+  "\t" DIM "-h --help" RESET", " BOLD "-n --dry-run\n" RESET \
+  "Expansions\n"                                             \
+  "\t" YELLOW "$@" RESET "  returns target-file                (abc.x.txt)\n"  \
+  "\t" YELLOW "$*" RESET "  returns target-file without suffix (^-> abc.x)\n"  \
+  "\t" YELLOW "$+" RESET "  returns arguments\n"
 
 /*** Utility functions ***/
 
@@ -151,7 +168,7 @@ find_region(map_t m) {
 
 #ifdef REQUIRE_SPACE
     if (!isspace(*start)) {
-      fprintf(stderr, "%s: Found start without suffix spacing.\n", g_filename);
+      fprintf(stderr, RED "%s" RESET ": Found start without suffix spacing.\n", g_filename);
       return buf;
     }
 #endif /* REQUIRE_SPACE */
@@ -273,7 +290,7 @@ strip(char * buf) {
 
 static int
 run(char * buf) {
-  fputs("Output:\n", stderr);
+  fputs(GREEN "output" RESET ":\n", stderr);
   return system(buf);
 }
 
@@ -306,8 +323,8 @@ main(int argc, char ** argv) {
   }
 
   if (!buf) {
-    if (errno) { fprintf(stderr, "%s: %s", g_filename, strerror(errno)); }
-    else { fprintf(stderr, "%s: File unrecognized.\n", g_filename); }
+    if (errno) { fprintf(stderr, BOLD RED "%s" RESET ": %s\n", g_filename, strerror(errno)); }
+    else { fprintf(stderr, BOLD RED "%s" RESET ": File unrecognized.\n", g_filename); }
     return 1;
   }
 
@@ -319,14 +336,14 @@ main(int argc, char ** argv) {
   }
   buf = expand(buf);
 
-  fprintf(stderr, "Bake: %s\n", buf + strip(buf));
+  fprintf(stderr, GREEN "%s" RESET ": %s\n", argv[0], buf + strip(buf));
   ret = ret ? 0 : run(buf);
   if (ret)
-  { fprintf(stderr, "Result: %d\n", ret); }
+  { fprintf(stderr, RED "result" RESET ": " BOLD "%d\n" RESET, ret); }
 
   free(buf);
   return ret;
 help:
-  fprintf(stderr, "%s: %s", argv[0], HELP DESC);
+  fprintf(stderr, YELLOW "%s" RESET ": %s", argv[0], HELP DESC);
   return 1;
 }
