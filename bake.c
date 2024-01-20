@@ -28,9 +28,9 @@
 #define  STOP "@STOP"
 
 #define  HELP                                                                          \
-    BOLD "target-file" RESET " [arguments ...]\n"                                      \
-    "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
-    "rest of line, or if found within the file, until the " BOLD "@STOP" RESET " marker.\n"             \
+  BOLD "target-file" RESET " [arguments ...]\n"                                      \
+  "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
+  "rest of line, or if found within the file, until the " BOLD "@STOP" RESET " marker.\n"             \
 
 #define DESC                                                 \
   "Options [Must always be first]\n"                         \
@@ -280,9 +280,6 @@ int
 main(int argc, char ** argv) {
   int ret = 0;
   char * buf = NULL;
-
-  /* changing this to "" creates many additional allocations */
-  (void) setlocale(LC_ALL, "C");
 
   if (argc < 2
   ||  !strcmp(argv[1], "-h")
