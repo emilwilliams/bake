@@ -27,8 +27,8 @@
 #define START "@BAKE"
 #define  STOP "@STOP"
 
-#define  HELP                                                                          \
-  BOLD "target-file" RESET " [arguments ...]\n"                                      \
+#define  HELP                                                                                         \
+  BOLD "[option] target-file" RESET " [" GREEN "arguments" RESET " ...]\n"                            \
   "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
   "rest of line, or if found within the file, until the " BOLD "@STOP" RESET " marker.\n"             \
 
@@ -38,7 +38,7 @@
   "Expansions\n"                                             \
   "\t" YELLOW "$@" RESET "  returns target-file                (abc.x.txt)\n"  \
   "\t" YELLOW "$*" RESET "  returns target-file without suffix (^-> abc.x)\n"  \
-  "\t" YELLOW "$+" RESET "  returns arguments\n"
+  "\t" YELLOW "$+" RESET "  returns " GREEN "arguments" RESET "\n"
 
 /*** Utility functions ***/
 
