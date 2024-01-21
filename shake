@@ -63,7 +63,7 @@ if [[ -n $line ]]; then
     echo "Exec: $command"
     if [[ $run -eq 1 ]]; then
         echo "Output:"
-        eval "$command"
+        $command
     fi
 else
     echo -e "${MARKSTR} is not defined." >&2

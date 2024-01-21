@@ -198,11 +198,14 @@ expand_size(char * buf, int argc, char ** argv) {
 
   len = max = strlen(buf) + 1;
 
+  #define str
   for (i = 0; i < len; ++i) {
     if (buf[i] == '\\') {
       i += 2;
       continue;
-    } else if (buf[i] == '$') {
+    } else if (strncmp())
+
+    else if (buf[i] == '$') {
       switch (buf[++i]) {
       case '@':
         max += strlen(g_filename);
