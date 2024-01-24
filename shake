@@ -60,10 +60,11 @@ line=${line//\$+/$@}
 
 if [[ -n $line ]]; then
     command="${line#*${MARK}}"
+    command=$(echo $command | sed 's/[^\\]\?#.*//')
     echo "Exec: $command"
     if [[ $run -eq 1 ]]; then
         echo "Output:"
-        $command
+        sh -c "$command"
     fi
 else
     echo -e "${MARKSTR} is not defined." >&2
