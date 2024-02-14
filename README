@@ -16,12 +16,14 @@ especially when multi-line comments are available.
 
 Binary files (files that contain characters < ' ' or > '~') are supported.
 
---- Buildng ---
+A manpage is included: bake(1)
+
+--- Building ---
 
 Bootstrapping may be done with Shake, simply run `./shake ./bake.c'
 
-Initial building may be done by examining and running `install.sh',
-or if you don't want to install it right away, run `SUDO= TARGET=. ./install.sh'
+Or simply run `install.sh', you'll need to be a privileged user to install the files.
+See the file's content for more details regarding the installation.
 
 --- I/O Extension ---
 
@@ -38,7 +40,7 @@ They are most useful for a template command, such as: @BAKE cc $@ -o $* $+
 
 only one option may be in use at a time, and must come as the first argument.
 
--h, --help: displays help message, similiarly to empty input.
+-h, --help: displays help message, similarly to empty input.
 -n, --dry-run: DRYRUN, does NOT run anything!
 
 --- Shake ---
@@ -54,4 +56,4 @@ multi-line commands.  It is not a replacement for Bake.
 
 Bake is licensed under the GPLv3-only, See LICENSE.
 
-Bake began on September 13th, 2023.
+Bake began on September 13th, 2023, and at this point in time, is complete.
