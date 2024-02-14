@@ -68,4 +68,5 @@ if [[ -n $line ]]; then
     fi
 else
     echo -e "${MARKSTR} is not defined." >&2
+    exit 1
 fi
