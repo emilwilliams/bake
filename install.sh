@@ -1,6 +1,13 @@
 #!/bin/sh
+
+TARGET=${TARGET:-/usr/local}
+INSTALL=${INSTALL:-bake shake}
+
 cd $(dirname "$(readlink -f "$0")")
-SUDO=${SUDO-sudo}
 chmod +x shake
+
 ./shake bake.c -s $@ && \
-$SUDO install -m 755 shake bake ${TARGET:-/usr/local/bin}
+mkdir $TARGET/bin $TARGET/man/man1 -p && \
+install -m 755 $INSTALL $TARGET/bin && \
+install -m 644 bake.1.gz $TARGET/man/man1 && \
+ln -f -s $TARGET/man/man1/bake.1.gz $TARGET/man/man1/shake.1.gz 
