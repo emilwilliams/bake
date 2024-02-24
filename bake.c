@@ -24,9 +24,6 @@
 
 #include "config.h"
 
-#define START "@BAKE"
-#define  STOP "@STOP"
-
 #define  HELP                                                                                         \
   BOLD "[option] target-file" RESET " [" GREEN "arguments" RESET " ...]\n"                            \
   "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
@@ -40,6 +37,14 @@
   "\t" YELLOW "$*" RESET "  returns target-file without suffix (^-> abc.x)\n"  \
   "\t" YELLOW "$+" RESET "  returns " GREEN "arguments" RESET "\n"
 
+typedef struct {
+  size_t len;
+  char * buf;
+} string_t;
+
+const static string_t START = { 5, "@BAKE" };
+const static string_t STOP  = { 5, "@STOP" };
+
 /*** Utility functions ***/
 
 static void
@@ -50,20 +55,18 @@ swap(char * a, char * b) {
 }
 
 static char *
-find(char * x, char * buf, char * end) {
-  size_t len = strlen(x);
-  for (; (buf < end) && len < (size_t)(end - buf); ++buf) {
-    if (!strncmp(buf, x, len))
+find(string_t x, char * buf, char * end) {
+  for (; (buf < end) && x.len < (size_t)(end - buf); ++buf) {
+    if (!strncmp(buf, x.buf, x.len))
     { return buf; }
   }
   return NULL;
 }
 
 static char *
-insert(char * new, char * str, size_t offset, size_t shift) {
-  size_t len, max;
-  len = strlen(new);
-  max = (strlen(str) + 1 - offset - shift);
+insert(char * new, size_t len, char * str, size_t slen, size_t offset, size_t shift) {
+  size_t max;
+  max = (slen + 1 - offset - shift);
   memmove(str + offset + len, str + offset + shift, max);
   memcpy(str + offset, new, len);
   return str;
@@ -71,7 +74,24 @@ insert(char * new, char * str, size_t offset, size_t shift) {
 
 /*** g_short, g_all Functions ***/
 
-static char * g_filename, * g_short, * g_all;
+#define GLOBALS_COUNT 3
+
+static char * globals[GLOBALS_COUNT];
+
+#define g_filename globals[0]
+#define    g_short globals[1]
+#define      g_all globals[2]
+
+/* doing a ? strlen(a) : "" really bothered me and this could be optimized out */
+static size_t *
+get_globals_length(void) {
+  static size_t len[GLOBALS_COUNT];
+  size_t i;
+  for (i = 0; i < GLOBALS_COUNT; ++i) {
+    len[i] = strlen(globals[i]);
+  }
+  return len;
+}
 
 static char *
 shorten(char * fn) {
@@ -86,7 +106,7 @@ shorten(char * fn) {
   last = last ? last : i;
   strncpy(sh, fn, last);
   sh[last] = '\0';
-  return sh;
+  return sh ? sh : calloc(1,1);
 }
 
 static char *
@@ -108,7 +128,7 @@ all_args(size_t argc, char ** argv) {
       if (i + 1 < argc) { all[len - 1] = ' '; }
     }
   }
-  return all;
+  return all ? all : calloc(1,1);
 }
 
 /*** Map ***/
@@ -139,14 +159,14 @@ map(char * fn) {
 /*** Important Functions ***/
 
 static char *
-find_region(map_t m) {
+find_region(map_t m, size_t * retlen) {
   extern char * strndup(const char * s, size_t n); /* for splint */
   char * buf = NULL, * start, * stop;
 
   start = find(START, m.str, m.str + m.len);
 
   if (start) {
-    start += strlen(START);
+    start += START.len;
 
 #ifdef REQUIRE_SPACE
     if (!isspace(*start)) {
@@ -167,7 +187,10 @@ find_region(map_t m) {
     }
 
     if (stop)
-    { buf = strndup(start, (size_t) (stop - m.str) - (start - m.str)); }
+    {
+      *retlen = (size_t) (stop - m.str) - (start - m.str);
+      buf = strndup(start, *retlen);
+    }
   }
   return buf;
 }
@@ -192,63 +215,52 @@ root(char ** rootp) {
   return ret;
 }
 
-static size_t
-expand_size(char * buf, int argc, char ** argv) {
-  size_t i, len, max;
-
-  len = max = strlen(buf) + 1;
-
-  for (i = 0; i < len; ++i) {
-    if (buf[i] == '\\') {
-      i += 2;
-      continue;
-    } else if (buf[i] == '$') {
-      switch (buf[++i]) {
-      case '@':
-        max += strlen(g_filename);
-        break;
-      case '*':
-        if (!g_short)
-        { g_short = shorten(g_filename); }
-        max += g_short ? strlen(g_short) : 0;
-        break;
-      case '+':
-        if (!g_all)
-        { g_all = all_args((size_t) argc, argv); }
-        max += g_all ? strlen(g_all) : 0;
-        break;
-      }
-    }
-  }
-  return max;
-}
+#define ARRLEN(x) (sizeof(x) / sizeof(x[0]))
 
 static char *
-expand(char * buf) {
-  size_t i;
-  char * ptr = NULL;
+expand(char * buf, size_t len) {
+  enum {
+    MACRO_FILENAME = 0,
+    MACRO_SHORT    = 1,
+    MACRO_ARGS     = 2,
+  };
 
-  for (i = 0; buf[i]; ++i) {
-    if (buf[i] == '\\') {
-      i += 2;
-      continue;
-    } else if (buf[i] == '$') {
-      switch (buf[++i]) {
-      case '@':
-        ptr = g_filename;
-        break;
-      case '*':
-        ptr = g_short;
-        break;
-      case '+':
-        ptr = g_all ? g_all : "";
-        break;
-      default: continue;
+  char *macro[] = {
+    [MACRO_FILENAME] = "$@",
+    [MACRO_SHORT   ] = "$*",
+    [MACRO_ARGS    ] = "$+",
+  };
+
+  size_t macro_length[] = {
+    [MACRO_FILENAME] = 2,
+    [MACRO_SHORT   ] = 2,
+    [MACRO_ARGS    ] = 2,
+  };
+
+  size_t * globals_length = get_globals_length();
+
+  char * ptr;
+  size_t i, f;
+
+  {
+    size_t max = len + 1;
+    for (i = 0; i < len; ++i) {
+      for (f = 0; f < ARRLEN(macro); ++f) {
+        if (!strncmp(buf + i, macro[f], macro_length[f])) {
+          max += globals_length[f];
+        }
       }
-      buf = insert(ptr, buf, i - 1, 2);
+    }
+    buf = realloc(buf, max + 10);
+    len = max - 1;
+  }
+  for (i = 0; i < len; ++i) {
+    for (f = 0; f < ARRLEN(macro); ++f) {
+      if (!strncmp(buf + i, macro[f], macro_length[f])) {
+        buf = insert(globals[f], globals_length[f], buf, len, i, 2);
+      }
     }
   }
-  free(g_short); free(g_all);
   return buf;
 }
 
@@ -280,6 +292,7 @@ int
 main(int argc, char ** argv) {
   int ret = 0;
   char * buf = NULL;
+  size_t len;
 
   if (argc < 2
   ||  !strcmp(argv[1], "-h")
@@ -296,24 +309,25 @@ main(int argc, char ** argv) {
 
   { map_t m = map(g_filename);
     if (m.str) {
-      buf = find_region(m);
+      buf = find_region(m, &len);
       munmap(m.str, m.len);
     }
   }
 
   if (!buf) {
-    if (errno) { fprintf(stderr, BOLD RED "%s" RESET ": %s\n", g_filename, strerror(errno)); }
-    else { fprintf(stderr, BOLD RED "%s" RESET ": File unrecognized.\n", g_filename); }
+    if (errno)
+    { fprintf(stderr, BOLD RED "%s" RESET ": %s\n", g_filename, strerror(errno)); }
+    else
+    { fprintf(stderr, BOLD RED "%s" RESET ": File unrecognized.\n", g_filename); }
     return 1;
   }
 
+  g_all = all_args((size_t) argc, argv);
+  g_short = shorten(g_filename);
   root(&g_filename);
-  { char * buf2 = buf;
-    buf = realloc(buf, expand_size(buf, argc, argv));
-    if (!buf)
-    { free(buf2); free(g_short); free(g_all); return 1; }
-  }
-  buf = expand(buf);
+  buf = expand(buf, len);
+  free(g_short); free(g_all);
+  if (!buf) { return 1; }
 
   fprintf(stderr, GREEN "%s" RESET ": %s\n", argv[0], buf + strip(buf));
   ret = ret ? 0 : run(buf);
