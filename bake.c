@@ -306,7 +306,7 @@ run(char * buf) {
   fputs(GREEN "output" RESET ":\n", stderr);
   pid_t pid = fork();
   if (!pid) {
-    execl("/bin/sh", "-c", "'ls bake.c'", NULL);
+    execl("/bin/sh", "sh", "-c", buf, NULL);
   } else {
     int status;
     waitpid(pid, &status, 0);
