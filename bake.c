@@ -358,7 +358,7 @@ main(int argc, char ** argv) {
   fprintf(stderr, GREEN "%s" RESET ": %s\n", argv[0], s.buf + strip(s));
   ret = ret ? 0 : run(s.buf);
   if (ret)
-  { fprintf(stderr, RED "result" RESET ": " BOLD "%d, %s\n" RESET, errno, strerror(errno)); }
+  { fprintf(stderr, RED "result" RESET ": " BOLD "%d\n" RESET, ret); }
 
   free(s.buf);
   return ret;
