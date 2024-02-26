@@ -4,12 +4,12 @@
 #define ENABLE_COLOR
 
 #ifdef ENABLE_COLOR
-# define    RED "\e[91m"
-# define  GREEN "\e[92m"
-# define YELLOW "\e[93m"
-# define    DIM "\e[2m"
-# define   BOLD "\e[1m"
-# define  RESET "\e[0m"
+# define    RED "\033[91m"
+# define  GREEN "\033[92m"
+# define YELLOW "\033[93m"
+# define    DIM "\033[2m"
+# define   BOLD "\033[1m"
+# define  RESET "\033[0m"
 #else
 # define    RED
 # define  GREEN
