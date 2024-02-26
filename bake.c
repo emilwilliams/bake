@@ -117,7 +117,8 @@ all_args(int argc, char ** argv) {
       all[len - 1] = '\0';
       for (len = 0, i = 2; i < argc; ++i) {
         strcpy(all + len, argv[i]);
-        len += strlen(argv[i]) + 1;
+        len += strlen(argv[i]);
+        len += (i + 1 < argc);
         if (i + 1 < argc) { all[len - 1] = ' '; }
       }
     }
@@ -366,3 +367,4 @@ help:
   fprintf(stderr, YELLOW "%s" RESET ": %s", argv[0], HELP DESC);
   return 1;
 }
+ 
