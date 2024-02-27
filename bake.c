@@ -103,52 +103,27 @@ shorten(string_t s) {
 
 static string_t
 all_args(int argc, char ** argv) {
-  char * all = NULL;
-  size_t len = 0;
-  if (argc > 2) {
-    int i;
-    len = (size_t) argc;
-
-    for (i = 2; i < argc; ++i)
-    { len += strlen(argv[i]); }
-
-    all = malloc(len);
-    if (all) {
-      all[len - 1] = '\0';
-      for (len = 0, i = 2; i < argc; ++i) {
-        strcpy(all + len, argv[i]);
-        len += strlen(argv[i]);
-        len += (i + 1 < argc);
-        if (i + 1 < argc) { all[len - 1] = ' '; }
-      }
-    }
-  }
-  return (string_t) { len, all ? all : calloc(0,0) };
-}
-
-#if 0
-static string_t
-all_args(int argc, char ** argv) {
   string_t s = (string_t) { 0, NULL };
   if (argc > 2) {
-    size_t i;
-    for (i = (size_t) argc; i > 2; --i) {
-      s.len += strlen(argv[i]) + 1;
+    size_t i, len = 0;
+    for (i = 2; i < (size_t) argc; ++i) {
+      len += strlen(argv[i]);
     }
-    s.buf = malloc(s.len + (size_t) argc);
+    s.buf = malloc(len);
+    s.len = len;
     if (s.buf) {
-      size_t len;
-      s.buf[s.len - 1] = '\0';
-      for (len = 0, i = (size_t) argc; i > 2; --i) {
+      for (len = 0, i = 2; i < (size_t) argc; ++i) {
         strcpy(s.buf + len, argv[i]);
-        len += strlen(argv[i]) + 1;
-        s.buf[len - 1] = ' ';
+        len += strlen(argv[i]);
+        if (i + 1 < argc) {
+          s.buf[len - 1] = ' ';
+          len++;
+        }
       }
     }
   }
   return s;
 }
-#endif
 
 /*** Map ***/
 
@@ -304,7 +279,7 @@ strip(string_t s) {
 static int
 run(char * buf) {
   int ret = 127;
-  fputs(GREEN "output" RESET ":\n", stderr);
+  fputs(BOLD GREEN "output" RESET ":\n", stderr);
   pid_t pid = fork();
   if (!pid) {
     execl("/bin/sh", "sh", "-c", buf, NULL);
@@ -342,9 +317,9 @@ main(int argc, char ** argv) {
 
   if (!s.buf) {
     if (errno)
-    { fprintf(stderr, BOLD RED "%s" RESET ": %s\n", g_filename.buf, strerror(errno)); }
+    { fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' %s\n", argv[0], g_filename.buf, strerror(errno)); }
     else
-    { fprintf(stderr, BOLD RED "%s" RESET ": File unrecognized.\n", g_filename.buf); }
+    { fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' File unrecognized.\n", argv[0], g_filename.buf); }
     return 1;
   }
 
@@ -356,10 +331,10 @@ main(int argc, char ** argv) {
   free(g_short.buf); free(g_all.buf);
   if (!s.buf) { return 1; }
 
-  fprintf(stderr, GREEN "%s" RESET ": %s\n", argv[0], s.buf + strip(s));
+  fprintf(stderr, BOLD GREEN "%s" RESET ": %s\n", argv[0], s.buf + strip(s));
   ret = ret ? 0 : run(s.buf);
   if (ret)
-  { fprintf(stderr, RED "result" RESET ": " BOLD "%d\n" RESET, ret); }
+  { fprintf(stderr, BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret); }
 
   free(s.buf);
   return ret;
@@ -367,4 +342,3 @@ help:
   fprintf(stderr, YELLOW "%s" RESET ": %s", argv[0], HELP DESC);
   return 1;
 }
- 
