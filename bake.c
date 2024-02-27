@@ -105,7 +105,7 @@ static string_t
 all_args(int argc, char ** argv) {
   string_t s = (string_t) { 0, NULL };
   if (argc > 2) {
-    size_t i, len = 0;
+    size_t i, len = argc - 2;
     for (i = 2; i < (size_t) argc; ++i) {
       len += strlen(argv[i]);
     }
@@ -115,11 +115,11 @@ all_args(int argc, char ** argv) {
       for (len = 0, i = 2; i < (size_t) argc; ++i) {
         strcpy(s.buf + len, argv[i]);
         len += strlen(argv[i]);
-        if (i + 1 < argc) {
-          s.buf[len - 1] = ' ';
-          len++;
+        if (i + 1 < (size_t) argc) {
+          s.buf[len++] = ' ';
         }
       }
+      s.len = len;
     }
   }
   return s;
@@ -240,6 +240,7 @@ expand(string_t s) {
       for (f = 0; f < ARRLEN(macro); ++f) {
         if (!strncmp(s.buf + i, macro[f].buf, macro[f].len)) {
           max += globals[f].len;
+          i += globals[f].len;
         }
       }
     }
@@ -251,7 +252,8 @@ expand(string_t s) {
   for (i = 0; i < s.len; ++i) {
     for (f = 0; f < ARRLEN(macro); ++f) {
       if (!strncmp(s.buf + i, macro[f].buf, macro[f].len)) {
-        insert(s.buf + i, s.len - i, globals[f].buf, globals[f].len, 2);
+        insert(s.buf + i, s.len - i, globals[f].buf, globals[f].len, macro[f].len);
+        i += globals[f].len;
       }
     }
   }
