@@ -16,7 +16,7 @@ this is not targeted toward any language and should be fairly flexible,
 especially when multi-line comments are available.  You should always
 consider your usecase before using a tool like this.  Bake is not an
 all-in-one solution, nor is it designed to be a sophisticated build system,
-consider something like GNU Make or Mason instead.
+consider something like GNU Make or Meson instead.
 
 Binary files (files that contain characters < ' ' or > '~') are supported.
 
