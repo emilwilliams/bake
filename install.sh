@@ -8,6 +8,7 @@ chmod +x shake
 
 ./shake bake.c -s $@ && \
 mkdir $TARGET/bin $TARGET/man/man1 -p && \
-install -m 755 $INSTALL $TARGET/bin && \
-install -m 644 bake.1.gz $TARGET/man/man1 && \
+install -m 755 $INSTALL $TARGET/bin
+
+gzip -c bake.1 > $TARGET/man/man1/bake.1.gz && \
 ln -f -s $TARGET/man/man1/bake.1.gz $TARGET/man/man1/shake.1.gz 
