@@ -2,46 +2,58 @@
 
 Bake scripts into files.
 
-Executes @BAKE to the end of the line or @STOP within in any given file.
+Executes @BAKE to the end of the line or until @STOP within in any given file.
 
-You may have multi-line commands, by either including a leading @STOP
-or ending each line with a backslash.
+You may have multi-line commands, by either including a leading @STOP or by
+ ending each line with a backslash.
 
 The execution takes place at the root of the target file, so if you have:
-`test/file.c', and then execution takes place at `test'.
+`test/file.c', and then execution takes place at `test' and the file is
+simply regarded as `file.c'.
 
 you may see a real example in the primary and only source file: `bake.c'.
 this is not targeted toward any language and should be fairly flexible,
-especially when multi-line comments are available.
+especially when multi-line comments are available.  You should always
+consider your usecase before using a tool like this.  Bake is not an
+all-in-one solution, nor is it designed to be a sophisticated build system,
+consider something like GNU Make or Mason instead.
 
 Binary files (files that contain characters < ' ' or > '~') are supported.
 
-A manpage is included: bake(1)
+Manpages are included: bake(1) shake(1)
 
 --- Building ---
 
 Bootstrapping may be done with Shake, simply run `./shake ./bake.c'
 
-Or simply run `install.sh', you'll need to be a privileged user to install the files.
-See the file's content for more details regarding the installation.
+Or simply run `install.sh', you'll need to be a privileged user to
+install the files. See the file's content for more details regarding
+the installation.
 
---- I/O Extension ---
+--- Macro Extension ---
 
-I/O provides various descriptive factors about the current context for the command,
-primarily the full and shortened filename, and the remaining arguments to the process.
+Macro provides various descriptive factors about the current context:
 
-$@: the name of the executed file
-$*: the text of the filename before the last dot
-$+: the remaining arguments to Bake
+ @FILENAME :  Filename of the baked file         (abc.x.txt)
+ @SHORT    :  Shortened version of the Filename  (^-> abc.x)
+ @ARGS     :  the remaining arguments to Bake
 
-They are most useful for a template command, such as: @BAKE cc $@ -o $* $+
+$@, $*, $+, respectively mapped to @FILENAME, @SHORT, and @ARGS,
+are still supported, avoid these in the future.
+
+They are most useful for a template command, such as:
+ @BAKE cc @FILENAME -o @SHORT @ARGS
+
+Backslash, while otherwise ignored, will be respected at the end of the line
+to concatenate lines together or if added to before any of listed macros will
+yield the unfettered text.
 
 --- Options ---
 
 only one option may be in use at a time, and must come as the first argument.
 
--h, --help: displays help message, similarly to empty input.
--n, --dry-run: DRYRUN, does NOT run anything!
+ -h, --help: displays help message, similarly to empty input.
+ -n, --dry-run: DRYRUN, does NOT run anything!
 
 --- Shake ---
 
@@ -50,10 +62,10 @@ he liked my suggestion for a name).  It is included under authorization
 of it's creator.  The original version of Shake may be found at:
 <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
 
-Bake includes a modified Shake, both in installation, and as a bootstrapper.
+Bake includes a modified Shake, both after installation and as a bootstrapper.
 The modified version includes all features of Bake with the exceptions of
-multi-line commands.  It is not a replacement for Bake.
+multi-line commands.  It is not a general replacement for Bake.
 
 Bake is licensed under the GPLv3-only, See LICENSE.
 
-Bake began on September 13th, 2023, and at this point in time, is complete.
+Bake was created on September 13th, 2023, and is complete.
