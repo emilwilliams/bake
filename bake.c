@@ -3,10 +3,9 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * @BAKE cc -std=c89 -O2 -I. @FILENAME -o @SHORT @ARGS @STOP
+ * @BAKE cc -std=c89 -O2 @FILENAME -o @SHORT @ARGS @STOP
  */
 
-/*#define POSIXLY_CORRECT*/
 #define _POSIX_C_SOURCE 200809L
 
 #include <assert.h>
@@ -45,23 +44,23 @@
 
 #define FILENAME_LIMIT (FILENAME_MAX)
 
+#define BAKE_ERROR 127
+
+enum {
+  BAKE_UNRECOGNIZED,
+  BAKE_MISSING_SUFFIX,
+};
+
 #define ARRLEN(a) (sizeof(a) / sizeof(a[0]))
 
 #if INCLUDE_AUTONOMOUS_COMPILE
-__attribute__((__section__(".text"))) static char autonomous_compile[] = "@BAKE cc -std=c89 $@.c -o $@ $+ @STOP";
+__attribute__((__section__(".text"))) static char autonomous_compile[] = "@BAKE cc -std=c89 -O2 $@.c -o $@ $+ @STOP";
 #endif
 
-static char * argv0;
-
-static char * global[4];
-
-#define g_filename global[0]
-#define g_short    global[1]
-#define g_all      global[2]
-#define g_stop     global[3]
+static int bake_errno;
 
 typedef struct {
-  char * str;
+  char * buf;
   size_t len;
 } map_t;
 
@@ -107,7 +106,7 @@ map(char * fn) {
     &&   s.st_mode & S_IFREG
     &&   s.st_size) {
       m.len = (size_t) s.st_size;
-      m.str = (char *) mmap(NULL, m.len, PROT_READ, MAP_SHARED, fd, 0);
+      m.buf = (char *) mmap(NULL, m.len, PROT_READ, MAP_SHARED, fd, 0);
     }
     close(fd);
   }
@@ -129,16 +128,16 @@ find(char * buf, char * x, char * end) {
 
 static char *
 find_region(map_t m, char * findstart, char * findstop) {
-  char * buf = NULL, * start, * stop, * end = m.len + m.str;
-  start = find(m.str, findstart, end);
+  char * buf = NULL, * start, * stop, * end = m.len + m.buf;
+  start = find(m.buf, findstart, end);
 
   if (start) {
     start += strlen(findstart);
 
 #ifdef REQUIRE_SPACE
     if (!isspace(*start)) {
-      fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' Found start without suffix spacing.\n", argv0, g_filename);
-      return buf;
+      bake_errno = BAKE_MISSING_SUFFIX;
+      return NULL;
     }
 #endif /* REQUIRE_SPACE */
 
@@ -154,7 +153,7 @@ find_region(map_t m, char * findstart, char * findstop) {
     }
 
     if (stop)
-    { buf = strndup(start, (size_t) (stop - m.str) - (start - m.str)); }
+    { buf = strndup(start, (size_t) (stop - m.buf) - (start - m.buf)); }
   }
   return buf;
 }
@@ -163,83 +162,10 @@ static char *
 file_find_region(char * fn, char * start, char * stop) {
   char * buf = NULL;
   map_t m = map(fn);
-  if (m.str) {
+  if (m.buf) {
     buf = find_region(m, start, stop);
-    munmap(m.str, m.len);
+    munmap(m.buf, m.len);
   }
-  return buf;
-}
-
-/*** insert, expand, bake_expand ***/
-
-static void
-insert(char * str, char * new, size_t slen, size_t nlen, size_t shift) {
-  memmove(str + nlen, str + shift, slen + 1 - shift);
-  memcpy(str, new, nlen);
-}
-
-static char *
-expand(char * buf, char * macro, char * with) {
-  ssize_t i,
-         blen = strlen(buf),
-         mlen = strlen(macro),
-         wlen = strlen(with),
-         nlen;
-  fflush(stdout);
-  for (i = 0; i < blen - mlen + 1; ++i) {
-    if (!strncmp(buf + i, macro, mlen)) {
-      if (i && buf[i - 1] == '\\') {
-        memmove(buf + i - 1, buf + i, blen - i);
-        buf[blen - 1] = '\0';
-      } else {
-        nlen = wlen - mlen + 1;
-        if (nlen > 0) {
-          buf   = realloc(buf, blen + nlen);
-        }
-        insert(buf + i, with, blen - i, wlen, mlen);
-        blen += (nlen > 0) * nlen;
-      }
-    }
-  }
-  return buf;
-}
-
-static char *
-bake_expand(char * buf) {
-  enum {
-    MACRO_FILENAME,
-    MACRO_SHORT,
-    MACRO_ARGS,
-    MACRO_STOP,
-    MACRO_NONE
-  };
-
-  char * macro[MACRO_NONE],
-       * macro_old[MACRO_STOP];
-
-  size_t i;
-
-  macro[MACRO_FILENAME] = "@FILENAME";
-  macro[MACRO_SHORT   ] =    "@SHORT";
-  macro[MACRO_ARGS    ] =     "@ARGS";
-  macro[MACRO_STOP    ] =     "@STOP";
-
-  macro_old[MACRO_FILENAME] = "$@";
-  macro_old[MACRO_SHORT   ] = "$*";
-  macro_old[MACRO_ARGS    ] = "$+";
-
-#if NEW_MACROS
-  for (i = 0; i < ARRLEN(macro); ++i) {
-    buf = expand(buf, macro[i], global[i]);
-  }
-#endif
-
-#if OLD_MACROS
-  for (i = 0; i < ARRLEN(macro_old); ++i) {
-    buf = expand(buf, macro_old[i], global[i]);
-  }
-#endif
-
   return buf;
 }
 
@@ -278,6 +204,88 @@ all_args(size_t argc, char ** argv) {
   return all ? all : calloc(1,1);
 }
 
+/*** insert, expand, bake_expand ***/
+
+static void
+insert(char * str, char * new, size_t slen, size_t nlen, size_t shift) {
+  memmove(str + nlen, str + shift, slen + 1 - shift);
+  memcpy(str, new, nlen);
+}
+
+static char *
+expand(char * buf, char * macro, char * with) {
+  ssize_t i,
+         blen = strlen(buf),
+         mlen = strlen(macro),
+         wlen = strlen(with),
+         nlen;
+  fflush(stdout);
+  for (i = 0; i < blen - mlen + 1; ++i) {
+    if (!strncmp(buf + i, macro, mlen)) {
+      if (i && buf[i - 1] == '\\') {
+        memmove(buf + i - 1, buf + i, blen - i);
+        buf[blen - 1] = '\0';
+      } else {
+        nlen = wlen - mlen + 1;
+        if (nlen > 0) {
+          buf   = realloc(buf, blen + nlen);
+        }
+        insert(buf + i, with, blen - i, wlen, mlen);
+        blen += (nlen > 0) * nlen;
+      }
+    }
+  }
+  return buf;
+}
+
+static char *
+bake_expand(char * buf, char * filename, int argc, char ** argv) {
+  enum {
+    MACRO_FILENAME,
+    MACRO_SHORT,
+    MACRO_ARGS,
+    MACRO_STOP,
+    MACRO_NONE
+  };
+
+  char * macro[MACRO_NONE],
+       * macro_old[MACRO_STOP];
+
+  size_t i;
+
+  macro[MACRO_FILENAME] = "@FILENAME";
+  macro[MACRO_SHORT   ] =    "@SHORT";
+  macro[MACRO_ARGS    ] =     "@ARGS";
+  macro[MACRO_STOP    ] =     "@STOP";
+
+  macro_old[MACRO_FILENAME] = "$@";
+  macro_old[MACRO_SHORT   ] = "$*";
+  macro_old[MACRO_ARGS    ] = "$+";
+
+  char * global[4];
+
+  global[MACRO_FILENAME] = filename;
+  global[MACRO_SHORT   ] = shorten(filename);
+  global[MACRO_ARGS    ] = all_args((size_t) argc, argv);
+  global[MACRO_STOP    ] = "";
+
+#if NEW_MACROS
+  for (i = 0; i < ARRLEN(macro); ++i) {
+    buf = expand(buf, macro[i], global[i]);
+  }
+#endif
+
+#if OLD_MACROS
+  for (i = 0; i < ARRLEN(macro_old); ++i) {
+    buf = expand(buf, macro_old[i], global[i]);
+  }
+#endif
+
+  free(global[MACRO_ARGS]);
+
+  return buf;
+}
+
 /*** strip, run ***/
 
 /* Strips all prefixing and leading whitespace.
@@ -294,24 +302,22 @@ strip(char * buf) {
 }
 
 static int
-run(char * buf) {
+run(char * buf, char * argv0) {
   fputs(BOLD GREEN "output" RESET ":\n", stderr);
-  pid_t pid = fork();
-  if (pid == 0) {
-    if (execl("/bin/sh", "sh", "-c", buf, NULL) == -1) {
-      fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n", argv0, "Exec Error", strerror(errno));
-    }
-    return 0;
+  pid_t pid;
+  if ((pid = fork()) == 0) {
+    execl("/bin/sh", "sh", "-c", buf, NULL);
+    return 0; /* execl overwrites the process anyways */
   } else if (pid == -1) {
     fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n", argv0, "Fork Error", strerror(errno));
-    return -1;
+    return BAKE_ERROR;
   } else {
     int status;
     if (waitpid(pid, &status, 0) < 0) {
       fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n", argv0, "Wait PID Error", strerror(errno));
-      return -1;
+      return BAKE_ERROR;
     }
-    if (!WIFEXITED(status)) { return -1; }
+    if (!WIFEXITED(status)) { return BAKE_ERROR; }
     return WEXITSTATUS(status);
   }
 }
@@ -321,7 +327,9 @@ run(char * buf) {
 int
 main(int argc, char ** argv) {
   int ret = 0;
-  char * buf = NULL;
+  char * buf = NULL,
+       * filename,
+       * argv0;
 
   argv0 = argv[0];
 
@@ -340,30 +348,30 @@ main(int argc, char ** argv) {
     else { goto help; }
   }
 
-  g_filename = argv[1];
-  if (strlen(g_filename) > FILENAME_LIMIT) { goto fnerr; }
-
-  root(&g_filename);
-  buf = file_find_region(g_filename, START, STOP);
-
-  if (!buf) {
-    if (errno)
-    { fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' %s\n", argv0, g_filename, strerror(errno)); }
-    else
-    { fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' File unrecognized.\n", argv0, g_filename); }
-    return 1;
+  filename = argv[1];
+  if (strlen(filename) > FILENAME_LIMIT) {
+    fprintf(stderr, BOLD RED "%s" RESET ": Filename too long (exceeds %d)\n", argv0, FILENAME_LIMIT);
+    return BAKE_ERROR;
   }
 
-  g_short = shorten(g_filename);
-  g_all = all_args((size_t) argc, argv);
-  g_stop = "";
+  root(&filename);
+  buf = file_find_region(filename, START, STOP);
 
-  buf = bake_expand(buf);
+  char * error[2];
+  error[0] = "File Unrecognized";
+  error[1] = "Found start without suffix spacing";
 
-  free(g_all);
+  if (!buf) {
+    printf("%d\n", bake_errno);
+    fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' %s.\n",
+                    argv0, filename, errno ? strerror(errno) : error[bake_errno]);
+    return BAKE_ERROR;
+  }
+
+  buf = bake_expand(buf, filename, argc, argv);
 
   fprintf(stderr, BOLD GREEN "%s" RESET ": %s\n", argv0, buf + strip(buf));
-  ret = ret ? 0 : run(buf);
+  ret = ret ? 0 : run(buf,argv0);
   if (ret)
   { fprintf(stderr, BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret); }
 
@@ -371,7 +379,5 @@ main(int argc, char ** argv) {
   return ret;
 help:
   fprintf(stderr, YELLOW "%s" RESET ": %s", argv0, HELP DESC);
-  return 1;
-fnerr:
-  fprintf(stderr, BOLD RED "%s" RESET ": Filename too long (exceeds %d)\n", argv0, FILENAME_LIMIT);
+  return BAKE_ERROR;
 }
