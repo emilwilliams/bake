@@ -1,35 +1,39 @@
 #!/bin/bash
 
-# Originally written by anon, modified
+# Originally written by Anon, modified by Emil to better match Bake functionality
+
+# Issues: sloooow, fails to handle multi-line statements
 
 BLUE='\033[34m'
 GREEN='\033[32m'
+YELLOW='\033[93m'
+DIM='\033[2m'
 BOLD='\033[1m'
 NORMAL='\033[0m'
 
 MARKNAME="@BAKE"
 MARK="${MARKNAME} "
-MARKSTR="${BLUE}${MARKNAME}${NORMAL}"
- 
+MARKSTR="${GREEN}${MARKNAME}${NORMAL}"
+
 enable -n echo
- 
+
 usage() {
-    IFSTR="${GREEN}<input_file>${NORMAL}"
-    echo -e "${BOLD}Usage: $0 <input_file>${NORMAL}" >&2
-    echo -e "\t$0 runs the value of ${MARKSTR}." >&2
-    echo -e "\tThe point of this script is ease to compialation of single source file (toy) programs." >&2
-    echo -e "\tThe value of ${MARKSTR} is read from ${IFSTR} in is whatever comes after '${MARK}' until the end of the line." >&2
-    echo -e "\tInside the value of ${MARKSTR} all mentions of special placeholders are replaced:" >&2
-    echo -e "\t\t${BLUE}\$@${NORMAL} - ${IFSTR}"
-    echo -e "\t\t${BLUE}\$*${NORMAL} - ${IFSTR} with the last extension cut off"
-    echo -e "\t\t${BLUE}\$+${NORMAL} - All remaining arguments"
+    echo -e "$0: [option] ${BOLD}target-file${NORMAL} [${GREEN}arguments${NORMAL} ...]\n"
+    echo -e "Use the format \`${BOLD}@BAKE${NORMAL} cmd ...' within the ${BOLD}target-file${NORMAL}."
+    echo -e "This will execute until the end of line, or if existing, until the ${BOLD}@STOP${NORMAL} marker.\n"
+    echo -e "Options [Must be first]"
+    echo -e "\t${DIM}-h --help${NORMAL}, ${BOLD}-n --dry-run${NORMAL}\n"
+    echo -e "Expansions\n"
+    echo -e "\t${YELLOW}@FILENAME${NORMAL}  returns target-file                (abc.x.txt)"
+    echo -e "\t${YELLOW}@SHORT${NORMAL}     returns target-file without suffix (^-> abc.x)"
+    echo -e "\t${YELLOW}@ARGS${NORMAL}      returns ${GREEN}arguments${NORMAL}"
 }
 
 if [[ $# -lt 1 ]]; then
     usage
     exit 1
 fi
- 
+
 if [[ $1 == "-h" ]] || [[ $1 == "--help" ]]; then
     usage
     exit 0
@@ -47,23 +51,31 @@ fi
 
 input_file=$1
 shift 1
- 
+
 if [[ ! -f $input_file ]]; then
     echo -e "Input file '$input_file' does not exist." >&2
     exit 1
 fi
 
+cd $(dirname "$(readlink -f "$input_file")")
+input_file=${input_file##*/}
+
 line=$(grep "$MARK" "$input_file" | head -1)
-line=${line//\$@/$input_file}
-line=${line//\$\*/${input_file%.*}}
-line=${line//\$+/$@}
 
 if [[ -n $line ]]; then
+
+    line=${line//\$@/$input_file}
+    line=${line//\$\*/${input_file%.*}}
+    line=${line//\$+/$@}
+    line=${line//@FILENAME/$input_file}
+    line=${line//@SHORT/${input_file%.*}}
+    line=${line//@ARGS/$@}
+    line=$(echo "$line" | sed 's/\W*@STOP.*//')
+
     command="${line#*${MARK}}"
-    command=$(echo $command | sed 's/[^\\]\?#.*//')
-    echo "Exec: $command"
+    echo -e "${BOLD}${GREEN}$0${NORMAL}: $command"
     if [[ $run -eq 1 ]]; then
-        echo "Output:"
+        echo -e "${BOLD}${GREEN}output${NORMAL}:"
         sh -c "$command"
     fi
 else
