@@ -1,4 +1,5 @@
 #!/bin/sh
+# source install
 
 TARGET=${TARGET:-/usr/local}
 INSTALL=${INSTALL:-bake shake}
