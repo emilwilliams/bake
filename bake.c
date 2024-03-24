@@ -29,6 +29,8 @@
 #define START "@BAKE"
 #define  STOP "@STOP"
 
+#define VERSION "20240302"
+
 #define  HELP                                                                                         \
   BOLD "[option] target-file" RESET " [" GREEN "arguments" RESET " ...]\n"                            \
   "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
@@ -303,7 +305,7 @@ strip(char * buf) {
 
 static int
 run(char * buf, char * argv0) {
-  fputs(BOLD GREEN "output" RESET ":\n", stderr);
+  puts(BOLD GREEN "output" RESET ":\n");
   pid_t pid;
   if ((pid = fork()) == 0) {
     execl("/bin/sh", "sh", "-c", buf, NULL);
@@ -338,6 +340,10 @@ main(int argc, char ** argv) {
   ||  !strcmp(argv[1], "--help"))
   { goto help; }
 
+  if (!strcmp(argv[1], "-v")
+  ||  !strcmp(argv[1], "--version"))
+  { goto version; }
+
   if (!strcmp(argv[1], "-n")
   ||  !strcmp(argv[1], "--dry-run")) {
     if (argc > 2) {
@@ -362,7 +368,6 @@ main(int argc, char ** argv) {
   error[1] = "Found start without suffix spacing";
 
   if (!buf) {
-    printf("%d\n", bake_errno);
     fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' %s.\n",
                     argv0, filename, errno ? strerror(errno) : error[bake_errno]);
     return BAKE_ERROR;
@@ -370,14 +375,17 @@ main(int argc, char ** argv) {
 
   buf = bake_expand(buf, filename, argc, argv);
 
-  fprintf(stderr, BOLD GREEN "%s" RESET ": %s\n", argv0, buf + strip(buf));
+  printf(BOLD GREEN "%s" RESET ": %s\n", argv0, buf + strip(buf));
   ret = ret ? 0 : run(buf,argv0);
   if (ret)
-  { fprintf(stderr, BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret); }
+  { printf(BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret); }
 
   free(buf);
   return ret;
 help:
   fprintf(stderr, YELLOW "%s" RESET ": %s", argv0, HELP DESC);
+  return BAKE_ERROR;
+version:
+  fprintf(stderr, YELLOW "%s" RESET ": v%s\n", argv0, VERSION);
   return BAKE_ERROR;
 }

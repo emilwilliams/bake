@@ -4,6 +4,8 @@
 
 # Issues: sloooow, fails to handle multi-line statements
 
+VERSION="20240302"
+
 BLUE='\033[34m'
 GREEN='\033[32m'
 YELLOW='\033[93m'
@@ -36,6 +38,11 @@ fi
 
 if [[ $1 == "-h" ]] || [[ $1 == "--help" ]]; then
     usage
+    exit 0
+fi
+
+if [[ $1 == "-v" ]] || [[ $1 == "--version" ]]; then
+    echo -e "$0: $VERSION"
     exit 0
 fi
 
