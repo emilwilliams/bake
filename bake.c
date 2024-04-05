@@ -3,7 +3,7 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * @BAKE cc -std=c89 -O2 @FILENAME -o @SHORT @ARGS @STOP
+ * @BAKE cc -std=c89 -O2 @FILENAME -o ${@SHORT} @ARGS # ${other-file} @STOP
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -28,6 +28,9 @@
 
 #define START "@BAKE"
 #define  STOP "@STOP"
+
+#define EXPUNGE_START "${"
+#define EXPUNGE_STOP   "}"
 
 #define VERSION "20240302"
 
@@ -56,7 +59,8 @@ enum {
 #define ARRLEN(a) (sizeof(a) / sizeof(a[0]))
 
 #if INCLUDE_AUTONOMOUS_COMPILE
-__attribute__((__section__(".text"))) static char autonomous_compile[] = "@BAKE cc -std=c89 -O2 $@.c -o $@ $+ @STOP";
+  __attribute__((__section__(".text"))) static char autonomous_compile[] =
+  "@BAKE cc -std=c89 -O2 $@.c -o $@ $+ @STOP";
 #endif
 
 static int bake_errno;
@@ -64,7 +68,9 @@ static int bake_errno;
 typedef struct {
   char * buf;
   size_t len;
-} map_t;
+} string_t;
+
+typedef string_t map_t;
 
 /*** root ***/
 
@@ -82,10 +88,13 @@ root(char ** rootp) {
   size_t len = strlen(root);
   int ret;
 
-  while (len && root[len] != '/')
-  { --len; }
+  while (len && root[len] != '/') {
+    --len;
+  }
 
-  if (!len) { return 0; }
+  if (!len) {
+    return 0;
+  }
 
   swap(root + len, x);
   ret = chdir(root);
@@ -101,17 +110,22 @@ static map_t
 map(char * fn) {
   struct stat s;
   int fd;
-  map_t m = (map_t) {0};
+  map_t m = (map_t) {
+    0
+  };
   fd = open(fn, O_RDONLY);
+
   if (fd != -1) {
-    if (!fstat(fd,&s)
-    &&   s.st_mode & S_IFREG
-    &&   s.st_size) {
+    if (!fstat(fd, &s)
+        &&   s.st_mode & S_IFREG
+        &&   s.st_size) {
       m.len = (size_t) s.st_size;
       m.buf = (char *) mmap(NULL, m.len, PROT_READ, MAP_SHARED, fd, 0);
     }
+
     close(fd);
   }
+
   return m;
 }
 
@@ -119,17 +133,42 @@ static char *
 find(char * buf, char * x, char * end) {
   size_t xlen = strlen(x);
   char * start = buf;
-  for (; buf < end - xlen; ++buf) {
+
+  for (; buf <= end - xlen; ++buf) {
     if (!strncmp(buf, x, xlen)) {
-      if (start < buf && buf[-1] == '\\') { continue; }
-      else { return buf; }
+      if (start < buf && buf[-1] == '\\') {
+        continue;
+      } else {
+        return buf;
+      }
     }
   }
+
   return NULL;
 }
 
+static string_t
+get_region(string_t m, char * findstart, char * findstop) {
+  string_t ret = { NULL, 0 };
+  char * end = m.len + m.buf;
+  ret.buf = find(m.buf, findstart, end);
+
+  if (ret.buf) {
+    char * stop = ret.buf + strlen(findstart);
+    stop = find(stop, findstop, end);
+
+    if (stop) {
+      ret.len = stop - ret.buf;
+    } else      {
+      ret.buf = NULL;
+    }
+  }
+
+  return ret;
+}
+
 static char *
-find_region(map_t m, char * findstart, char * findstop) {
+find_region(string_t m, char * findstart, char * findstop) {
   char * buf = NULL, * start, * stop, * end = m.len + m.buf;
   start = find(m.buf, findstart, end);
 
@@ -137,26 +176,32 @@ find_region(map_t m, char * findstart, char * findstop) {
     start += strlen(findstart);
 
 #ifdef REQUIRE_SPACE
+
     if (!isspace(*start)) {
       bake_errno = BAKE_MISSING_SUFFIX;
       return NULL;
     }
+
 #endif /* REQUIRE_SPACE */
 
     stop = find(start, findstop, end);
 
     if (!stop) {
       stop = start;
+
       while (stop < end && *stop != '\n') {
         if (stop[0] == '\\'
-        &&  stop[1] == '\n') { stop += 2; }
+            &&  stop[1] == '\n') {
+          stop += 2;
+        }
+
         ++stop;
       }
     }
 
-    if (stop)
-    { buf = strndup(start, (size_t) (stop - m.buf) - (start - m.buf)); }
+    buf = strndup(start, (size_t) (stop - m.buf) - (start - m.buf));
   }
+
   return buf;
 }
 
@@ -164,10 +209,12 @@ static char *
 file_find_region(char * fn, char * start, char * stop) {
   char * buf = NULL;
   map_t m = map(fn);
+
   if (m.buf) {
     buf = find_region(m, start, stop);
     munmap(m.buf, m.len);
   }
+
   return buf;
 }
 
@@ -178,9 +225,13 @@ shorten(char * fn) {
   size_t i, last, len;
   static char sh[FILENAME_LIMIT];
   len = strlen(fn);
+
   for (last = i = 0; i < len; ++i) {
-    if (fn[i] == '.') { last = i; }
+    if (fn[i] == '.') {
+      last = i;
+    }
   }
+
   last = last ? last : i;
   strncpy(sh, fn, last);
   sh[last] = '\0';
@@ -190,20 +241,28 @@ shorten(char * fn) {
 static char *
 all_args(size_t argc, char ** argv) {
   char * all = NULL;
-  if (argc > 2) {
+
+  if (argc > 0) {
     size_t i, len = argc;
 
-    for (i = 2; i < argc; ++i)
-    { len += strlen(argv[i]); }
+    for (i = 0; i < argc; ++i) {
+      len += strlen(argv[i]);
+    }
+
     all = malloc(len + 1);
     all[len] = '\0';
-    for (len = 0, i = 2; i < argc; ++i) {
+
+    for (len = 0, i = 0; i < argc; ++i) {
       strcpy(all + len, argv[i]);
       len += strlen(argv[i]) + 1;
-      if (i + 1 < argc) { all[len - 1] = ' '; }
+
+      if (i + 1 < argc) {
+        all[len - 1] = ' ';
+      }
     }
   }
-  return all ? all : calloc(1,1);
+
+  return all ? all : calloc(1, 1);
 }
 
 /*** insert, expand, bake_expand ***/
@@ -217,11 +276,12 @@ insert(char * str, char * new, size_t slen, size_t nlen, size_t shift) {
 static char *
 expand(char * buf, char * macro, char * with) {
   ssize_t i,
-         blen = strlen(buf),
-         mlen = strlen(macro),
-         wlen = strlen(with),
-         nlen;
+          blen = strlen(buf),
+          mlen = strlen(macro),
+          wlen = strlen(with),
+          nlen;
   fflush(stdout);
+
   for (i = 0; i < blen - mlen + 1; ++i) {
     if (!strncmp(buf + i, macro, mlen)) {
       if (i && buf[i - 1] == '\\') {
@@ -229,14 +289,17 @@ expand(char * buf, char * macro, char * with) {
         buf[blen - 1] = '\0';
       } else {
         nlen = wlen - mlen + 1;
+
         if (nlen > 0) {
-          buf   = realloc(buf, blen + nlen);
+          buf = realloc(buf, blen + nlen);
         }
+
         insert(buf + i, with, blen - i, wlen, mlen);
         blen += (nlen > 0) * nlen;
       }
     }
   }
+
   return buf;
 }
 
@@ -272,20 +335,50 @@ bake_expand(char * buf, char * filename, int argc, char ** argv) {
   global[MACRO_STOP    ] = "";
 
 #if NEW_MACROS
+
   for (i = 0; i < ARRLEN(macro); ++i) {
     buf = expand(buf, macro[i], global[i]);
   }
+
 #endif
 
 #if OLD_MACROS
+
   for (i = 0; i < ARRLEN(macro_old); ++i) {
     buf = expand(buf, macro_old[i], global[i]);
   }
+
 #endif
 
   free(global[MACRO_ARGS]);
 
   return buf;
+}
+
+static string_t *
+remove_expand(char * buf) {
+  string_t * rem = NULL;
+  size_t i = 0;
+  size_t f;
+
+  rem = (string_t *) realloc(rem, i + 1 * sizeof(string_t));
+
+  while (rem) {
+    fflush(stdout);
+    rem[i] = get_region((string_t) {
+      buf, strlen(buf)
+    }, EXPUNGE_START, EXPUNGE_STOP);
+
+    if (rem[i].buf) {
+      expand(rem[i].buf, EXPUNGE_START, "");
+      expand(rem[i].buf, EXPUNGE_STOP, "");
+    } else break;
+
+    ++i;
+    rem = (string_t *) realloc(rem, (1 + i) * sizeof(string_t));
+  }
+
+  return rem;
 }
 
 /*** strip, run ***/
@@ -295,11 +388,23 @@ bake_expand(char * buf, char * filename, int argc, char ** argv) {
 static size_t
 strip(char * buf) {
   size_t i = strlen(buf);
-  if (!i) { return 0; }
-  while (i && isspace(buf[i - 1])) { --i; }
+
+  if (!i) {
+    return 0;
+  }
+
+  while (i && isspace(buf[i - 1])) {
+    --i;
+  }
+
   buf[i] = '\0';
+
   for (i = 0; isspace(buf[i]); ++i);
-  if (i && buf[i - 1] == '\n') { --i; }
+
+  if (i && buf[i - 1] == '\n') {
+    --i;
+  }
+
   return i;
 }
 
@@ -307,19 +412,27 @@ static int
 run(char * buf, char * argv0) {
   puts(BOLD GREEN "output" RESET ":\n");
   pid_t pid;
+
   if ((pid = fork()) == 0) {
     execl("/bin/sh", "sh", "-c", buf, NULL);
     return 0; /* execl overwrites the process anyways */
   } else if (pid == -1) {
-    fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n", argv0, "Fork Error", strerror(errno));
+    fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n", argv0, "Fork Error",
+            strerror(errno));
     return BAKE_ERROR;
   } else {
     int status;
+
     if (waitpid(pid, &status, 0) < 0) {
-      fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n", argv0, "Wait PID Error", strerror(errno));
+      fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n", argv0, "Wait PID Error",
+              strerror(errno));
       return BAKE_ERROR;
     }
-    if (!WIFEXITED(status)) { return BAKE_ERROR; }
+
+    if (!WIFEXITED(status)) {
+      return BAKE_ERROR;
+    }
+
     return WEXITSTATUS(status);
   }
 }
@@ -328,35 +441,67 @@ run(char * buf, char * argv0) {
 
 int
 main(int argc, char ** argv) {
-  int ret = 0;
-  char * buf = NULL,
-       * filename,
-       * argv0;
+  enum { RET_RUN = 0, RET_NORUN = (1 << 0), RET_EXPUNGE = (1 << 1) };
+  int ret = RET_RUN;
+  char  * buf = NULL,
+          *  filename,
+          *  argv0;
+  string_t * rem;
 
   argv0 = argv[0];
 
-  if (argc < 2
-  ||  !strcmp(argv[1], "-h")
-  ||  !strcmp(argv[1], "--help"))
-  { goto help; }
+  while (++argv, --argc && argv[0][0] == '-') {
+    ++argv[0];
 
-  if (!strcmp(argv[1], "-v")
-  ||  !strcmp(argv[1], "--version"))
-  { goto version; }
+    if (argv[0][1] == '-') {
+      ++argv[0];
 
-  if (!strcmp(argv[1], "-n")
-  ||  !strcmp(argv[1], "--dry-run")) {
-    if (argc > 2) {
-      ret = 1;
-      --argc;
-      ++argv;
-    }
-    else { goto help; }
+      if (!strcmp(argv[0],    "help")) {
+        goto help;
+      } else if (!strcmp(argv[0], "version")) {
+        goto version;
+      } else if (!strcmp(argv[0], "expunge")) {
+        ret |= RET_EXPUNGE;
+      } else if (!strcmp(argv[0], "dry-run")) {
+        ret |= RET_NORUN;
+      } else                                  {
+        puts("UNKNOWN");
+        goto help;
+      }
+    } else do {
+        switch (argv[0][0]) {
+        case 'h':
+          goto help;
+
+        case 'v':
+          goto version;
+
+        case 'x':
+          ret |= RET_EXPUNGE;
+          break;
+
+        case 'n':
+          ret |= RET_NORUN;
+          break;
+
+        case 0  :
+          goto next;
+
+        default :
+          puts("UNKNOWN");
+          goto help;
+        }
+      } while (++(argv[0]));
+
+  next:
   }
 
-  filename = argv[1];
+  filename = argv[0];
+  ++argv, --argc;
+
   if (strlen(filename) > FILENAME_LIMIT) {
-    fprintf(stderr, BOLD RED "%s" RESET ": Filename too long (exceeds %d)\n", argv0, FILENAME_LIMIT);
+    fprintf(stderr, BOLD RED "%s" RESET ": Filename too long (exceeds %d)\n", argv0,
+            FILENAME_LIMIT);
     return BAKE_ERROR;
   }
 
@@ -369,17 +514,37 @@ main(int argc, char ** argv) {
 
   if (!buf) {
     fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' %s.\n",
-                    argv0, filename, errno ? strerror(errno) : error[bake_errno]);
+            argv0, filename, errno ? strerror(errno) : error[bake_errno]);
     return BAKE_ERROR;
   }
 
   buf = bake_expand(buf, filename, argc, argv);
 
   printf(BOLD GREEN "%s" RESET ": %s\n", argv0, buf + strip(buf));
-  ret = ret ? 0 : run(buf,argv0);
-  if (ret)
-  { printf(BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret); }
 
+  rem = remove_expand(buf);
+
+  printf(BOLD GREEN "%s" RESET ": %s\n", argv0, buf + strip(buf));
+
+  if (!ret) {
+    ret = run(buf, argv0);
+
+    if (ret) {
+      printf(BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret);
+    }
+  } else if (ret & RET_EXPUNGE) {
+    if (ret & RET_NORUN) {
+      puts("NORUN");
+    } else {
+      size_t i;
+      for (i = 0; rem[i].buf; ++i) {
+        printf("removing: %s\n", rem[i].buf);
+        remove(rem[i].buf);
+      }
+    }
+  }
+
+  free(rem);
   free(buf);
   return ret;
 help:
