@@ -3,7 +3,7 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * @BAKE cc -std=c89 -O2 @FILENAME -o @SHORT @ARGS @STOP
+ * @BAKE cc -std=c89 -O2 @FILENAME -o @{@SHORT} @ARGS @STOP
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -29,7 +29,7 @@
 #define START "@BAKE"
 #define  STOP "@STOP"
 
-#define EXPUNGE_START "${"
+#define EXPUNGE_START "@{"
 #define EXPUNGE_STOP   "}"
 
 #define VERSION "20240404"
@@ -53,9 +53,7 @@
   "\tinfluence on the normal command execution.\n"                                          \
   "\t" YELLOW "\\" RESET                                                                    \
   "SPECIAL_NAME will result in SPECIAL_NAME in the executed shell command.\n"               \
-  "\t" RED "\\\\" RESET                                                                     \
-  "SPECIAL NAME will result as the rule above.\n"                \
-  "\tThis is applicable to all meaningful symbols in Bake, it is ignored otherwise."
+  "Backslashing is applicable to all meaningful symbols in Bake, it is ignored otherwise."
 
 #define COPYRIGHT "2023 Emil Williams"
 #define LICENSE "Licensed under the GNU Public License version 3 only, see LICENSE."
@@ -159,35 +157,6 @@ find(char * buf, char * x, char * end) {
 
   return NULL;
 }
-
-#if 0
-static string_t
-find_region(char * buf, char * findstart, char * findstop,
-            char ** end) {
-  char * start = find(buf, findstart, *end),
-         * stop;
-  size_t findstart_len =  strlen(findstart);
-
-  if (!start) {
-    return (string_t) {
-      NULL, 0
-    };
-  }
-
-  stop = find(start + findstart_len, findstop, *end);
-
-  if (!stop) {
-    return (string_t) {
-      NULL, 0
-    };
-  }
-
-  *end = stop;
-  return (string_t) {
-    start, stop - start
-  };
-}
-#endif
 
 static char *
 get_region(string_t m, char * findstart, char * findstop) {
@@ -377,44 +346,11 @@ bake_expand(char * buf, char * filename, int argc, char ** argv) {
   return buf;
 }
 
-#if 0
-/* this function somehow rapes the end of the string and removes one character or it's a off by one in strip */
-static string_t *
-remove_expand(char * buf) {
-  string_t * rem = malloc(sizeof(string_t));
-  char * start = buf, * bend = start + strlen(buf), * end = bend;
-  size_t i = 0;
-
-  while (rem) {
-    rem[i] = find_region(start, EXPUNGE_START, EXPUNGE_STOP, &end);
-    printf("\nrem:%d %s\n", rem[i].len, rem[i]);
-
-    if (rem[i].buf) {
-      start += rem[i].buf - buf + end - rem[i].buf;
-      rem[i].len = end - rem[i].buf - strlen(EXPUNGE_START);
-      printf("\nrem:%d %s\n", rem[i].len, start);
-      insert(start, "", bend - start, 0, 1);
-    } else {
-      break;
-    }
-
-    rem = realloc(rem, (1 + ++i) * sizeof(string_t));
-  }
-
-  expand(buf, EXPUNGE_START, "");
-
-  return rem;
-}
-#endif
-
 static char *
 remove_expand(char * buf) {
   size_t i, f, plen = 0, len = 1, end = strlen(buf);
   char * l = NULL;
 
-  /* "a\0b\0\0" */
-  /* ${a} \${} ${b} -> insert at beginning of } shift 1  -> */
-  /* ${a \${} ${b -> expand -> a ${} b */
   for (i = 0; i < end; ++i) {
     if (!strncmp(buf + i, EXPUNGE_START, strlen(EXPUNGE_START))) {
       if (buf + i > buf && buf[i - 1] == '\\') {
@@ -431,7 +367,6 @@ remove_expand(char * buf) {
           i += strlen(EXPUNGE_START);
           plen = (len != 1) * (len - 1);
           len += f - i + 1;
-          printf("plen: %d, len: %d\n", plen, len);
           l = realloc(l, len);
           memcpy(l + plen, buf + i, f - i);
           l[plen + f - i] = '\0';
@@ -449,16 +384,7 @@ stop:
   expand(buf, EXPUNGE_START, "");
 
   if (l) {
-    size_t i, xz = 0;
     l[len - 1] = '\0';
-
-    for (i = 0; i < len; ++i) {
-      if (l[i] == '\0') ++xz;
-    };
-
-    printf("xz: %d\n", xz);
-
-    printf("l: %s\n", l);
   }
 
   return l;

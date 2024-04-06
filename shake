@@ -29,6 +29,8 @@ usage() {
     echo -e "\t${YELLOW}@FILENAME${NORMAL}  returns target-file                (abc.x.txt)"
     echo -e "\t${YELLOW}@SHORT${NORMAL}     returns target-file without suffix (^-> abc.x)"
     echo -e "\t${YELLOW}@ARGS${NORMAL}      returns ${GREEN}arguments${NORMAL}"
+    echo -e "\t${YELLOW}@{${NORMAL}${BOLD}EXPUNGE_THIS_FILE${YELLOW}}${NORMAL} inline region to delete this or many files or directories,"
+    echo -e "\tnon-recursive, only one file per block, removed from left to right. This has no\n\tinfluence on the normal command execution.\n"
 }
 
 if [[ $# -lt 1 ]]; then
@@ -79,8 +81,9 @@ if [[ -n $line ]]; then
     line=${line//@ARGS/$@}
     line=$(echo "$line" | sed 's/\W*@STOP.*//')
 
+    echo -e "${BOLD}${GREEN}$0${NORMAL}: ${line#*${MARK}}"
+    echo=$(echo "$line" | sed 's/@{\(.*\)\([^\\]\)}.*$/\1\2/')
     command="${line#*${MARK}}"
-    echo -e "${BOLD}${GREEN}$0${NORMAL}: $command"
     if [[ $run -eq 1 ]]; then
         echo -e "${BOLD}${GREEN}output${NORMAL}:"
         sh -c "$command"
