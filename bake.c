@@ -3,7 +3,7 @@
  *
  * Licensed under the GNU Public License version 3 only, see LICENSE.
  *
- * @BAKE cc -std=c89 -O2 @FILENAME -o ${@SHORT} @ARGS # ${other-file} @STOP
+ * @BAKE cc -std=c89 -O2 @FILENAME -o @SHORT @ARGS @STOP
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -32,20 +32,33 @@
 #define EXPUNGE_START "${"
 #define EXPUNGE_STOP   "}"
 
-#define VERSION "20240302"
+#define VERSION "20240404"
 
 #define  HELP                                                                                         \
   BOLD "[option] target-file" RESET " [" GREEN "arguments" RESET " ...]\n"                            \
   "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
   "rest of line, or if found within the file, until the " BOLD "@STOP" RESET " marker.\n"             \
 
-#define DESC                                                 \
-  "Options [Must always be first]\n"                         \
-  "\t" DIM "-h --help" RESET", " BOLD "-n --dry-run\n" RESET \
-  "Expansions\n"                                             \
-  "\t" YELLOW "@FILENAME" RESET "  returns target-file                (abc.x.txt)\n"  \
-  "\t" YELLOW "@SHORT   " RESET "  returns target-file without suffix (^-> abc.x)\n"  \
-  "\t" YELLOW "@ARGS    " RESET "  returns " GREEN "arguments" RESET "\n"
+#define DESC                                                                                \
+  "Options [Must always be first]\n"                                                        \
+  "\t" DIM "-h --help" RESET", " BOLD "-n --dry-run" RESET ", " BOLD "-x --expunge\n" RESET \
+  "Expansions\n"                                                                            \
+  "\t" YELLOW "@FILENAME" RESET "  returns target-file                (abc.x.txt)\n"        \
+  "\t" YELLOW "@SHORT   " RESET "  returns target-file without suffix (^-> abc.x)\n"        \
+  "\t" YELLOW "@ARGS    " RESET "  returns " GREEN "arguments" RESET "\n"                   \
+  "Additional Features And Notes\n"                                                         \
+  "\t" YELLOW "@{" RESET BOLD "EXPUNGE_THIS_FILE" YELLOW "}" RESET                          \
+  " inline region to delete this or many files or directories,\n"                           \
+  "\tnon-recursive, only one file per block, removed from left to right. This has no\n"     \
+  "\tinfluence on the normal command execution.\n"                                          \
+  "\t" YELLOW "\\" RESET                                                                    \
+  "SPECIAL_NAME will result in SPECIAL_NAME in the executed shell command.\n"               \
+  "\t" RED "\\\\" RESET                                                                     \
+  "SPECIAL NAME will result as the rule above.\n"                \
+  "\tThis is applicable to all meaningful symbols in Bake, it is ignored otherwise."
+
+#define COPYRIGHT "2023 Emil Williams"
+#define LICENSE "Licensed under the GNU Public License version 3 only, see LICENSE."
 
 #define FILENAME_LIMIT (FILENAME_MAX)
 
@@ -147,28 +160,37 @@ find(char * buf, char * x, char * end) {
   return NULL;
 }
 
+#if 0
 static string_t
-get_region(string_t m, char * findstart, char * findstop) {
-  string_t ret = { NULL, 0 };
-  char * end = m.len + m.buf;
-  ret.buf = find(m.buf, findstart, end);
+find_region(char * buf, char * findstart, char * findstop,
+            char ** end) {
+  char * start = find(buf, findstart, *end),
+         * stop;
+  size_t findstart_len =  strlen(findstart);
 
-  if (ret.buf) {
-    char * stop = ret.buf + strlen(findstart);
-    stop = find(stop, findstop, end);
-
-    if (stop) {
-      ret.len = stop - ret.buf;
-    } else      {
-      ret.buf = NULL;
-    }
+  if (!start) {
+    return (string_t) {
+      NULL, 0
+    };
   }
 
-  return ret;
+  stop = find(start + findstart_len, findstop, *end);
+
+  if (!stop) {
+    return (string_t) {
+      NULL, 0
+    };
+  }
+
+  *end = stop;
+  return (string_t) {
+    start, stop - start
+  };
 }
+#endif
 
 static char *
-find_region(string_t m, char * findstart, char * findstop) {
+get_region(string_t m, char * findstart, char * findstop) {
   char * buf = NULL, * start, * stop, * end = m.len + m.buf;
   start = find(m.buf, findstart, end);
 
@@ -199,19 +221,19 @@ find_region(string_t m, char * findstart, char * findstop) {
       }
     }
 
-    buf = strndup(start, (size_t) (stop - m.buf) - (start - m.buf));
+    buf = strndup(start, (size_t)(stop - start));
   }
 
   return buf;
 }
 
 static char *
-file_find_region(char * fn, char * start, char * stop) {
+file_get_region(char * fn, char * start, char * stop) {
   char * buf = NULL;
   map_t m = map(fn);
 
   if (m.buf) {
-    buf = find_region(m, start, stop);
+    buf = get_region(m, start, stop);
     munmap(m.buf, m.len);
   }
 
@@ -355,30 +377,91 @@ bake_expand(char * buf, char * filename, int argc, char ** argv) {
   return buf;
 }
 
+#if 0
+/* this function somehow rapes the end of the string and removes one character or it's a off by one in strip */
 static string_t *
 remove_expand(char * buf) {
-  string_t * rem = NULL;
+  string_t * rem = malloc(sizeof(string_t));
+  char * start = buf, * bend = start + strlen(buf), * end = bend;
   size_t i = 0;
-  size_t f;
-
-  rem = (string_t *) realloc(rem, i + 1 * sizeof(string_t));
 
   while (rem) {
-    fflush(stdout);
-    rem[i] = get_region((string_t) {
-      buf, strlen(buf)
-    }, EXPUNGE_START, EXPUNGE_STOP);
+    rem[i] = find_region(start, EXPUNGE_START, EXPUNGE_STOP, &end);
+    printf("\nrem:%d %s\n", rem[i].len, rem[i]);
 
     if (rem[i].buf) {
-      expand(rem[i].buf, EXPUNGE_START, "");
-      expand(rem[i].buf, EXPUNGE_STOP, "");
-    } else break;
+      start += rem[i].buf - buf + end - rem[i].buf;
+      rem[i].len = end - rem[i].buf - strlen(EXPUNGE_START);
+      printf("\nrem:%d %s\n", rem[i].len, start);
+      insert(start, "", bend - start, 0, 1);
+    } else {
+      break;
+    }
 
-    ++i;
-    rem = (string_t *) realloc(rem, (1 + i) * sizeof(string_t));
+    rem = realloc(rem, (1 + ++i) * sizeof(string_t));
   }
 
+  expand(buf, EXPUNGE_START, "");
+
   return rem;
+}
+#endif
+
+static char *
+remove_expand(char * buf) {
+  size_t i, f, plen = 0, len = 1, end = strlen(buf);
+  char * l = NULL;
+
+  /* "a\0b\0\0" */
+  /* ${a} \${} ${b} -> insert at beginning of } shift 1  -> */
+  /* ${a \${} ${b -> expand -> a ${} b */
+  for (i = 0; i < end; ++i) {
+    if (!strncmp(buf + i, EXPUNGE_START, strlen(EXPUNGE_START))) {
+      if (buf + i > buf && buf[i - 1] == '\\') {
+        continue;
+      }
+
+      for (f = i; f < end; ++f) {
+        if (!strncmp(buf + f, EXPUNGE_STOP, strlen(EXPUNGE_STOP))) {
+          if (buf + f > buf && buf[f - 1] == '\\') {
+            continue;
+          }
+
+          insert(buf + f, "", end - f, 0, 1);
+          i += strlen(EXPUNGE_START);
+          plen = (len != 1) * (len - 1);
+          len += f - i + 1;
+          printf("plen: %d, len: %d\n", plen, len);
+          l = realloc(l, len);
+          memcpy(l + plen, buf + i, f - i);
+          l[plen + f - i] = '\0';
+          goto next;
+        }
+      }
+
+      goto stop;
+    }
+
+  next:
+  }
+
+stop:
+  expand(buf, EXPUNGE_START, "");
+
+  if (l) {
+    size_t i, xz = 0;
+    l[len - 1] = '\0';
+
+    for (i = 0; i < len; ++i) {
+      if (l[i] == '\0') ++xz;
+    };
+
+    printf("xz: %d\n", xz);
+
+    printf("l: %s\n", l);
+  }
+
+  return l;
 }
 
 /*** strip, run ***/
@@ -417,15 +500,15 @@ run(char * buf, char * argv0) {
     execl("/bin/sh", "sh", "-c", buf, NULL);
     return 0; /* execl overwrites the process anyways */
   } else if (pid == -1) {
-    fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n", argv0, "Fork Error",
-            strerror(errno));
+    fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n",
+            argv0, "Fork Error", strerror(errno));
     return BAKE_ERROR;
   } else {
     int status;
 
     if (waitpid(pid, &status, 0) < 0) {
-      fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n", argv0, "Wait PID Error",
-              strerror(errno));
+      fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n",
+              argv0, "Wait PID Error", strerror(errno));
       return BAKE_ERROR;
     }
 
@@ -446,9 +529,13 @@ main(int argc, char ** argv) {
   char  * buf = NULL,
           *  filename,
           *  argv0;
-  string_t * rem;
+  char * rem;
 
   argv0 = argv[0];
+
+  if (argc < 2) {
+    goto help;
+  }
 
   while (++argv, --argc && argv[0][0] == '-') {
     ++argv[0];
@@ -500,13 +587,15 @@ main(int argc, char ** argv) {
   ++argv, --argc;
 
   if (strlen(filename) > FILENAME_LIMIT) {
-    fprintf(stderr, BOLD RED "%s" RESET ": Filename too long (exceeds %d)\n", argv0,
+    fprintf(stderr, BOLD RED "%s" RESET
+            ": Filename too long (exceeds %d)\n",
+            argv0,
             FILENAME_LIMIT);
     return BAKE_ERROR;
   }
 
   root(&filename);
-  buf = file_find_region(filename, START, STOP);
+  buf = file_get_region(filename, START, STOP);
 
   char * error[2];
   error[0] = "File Unrecognized";
@@ -533,14 +622,24 @@ main(int argc, char ** argv) {
       printf(BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret);
     }
   } else if (ret & RET_EXPUNGE) {
-    if (ret & RET_NORUN) {
-      puts("NORUN");
-    } else {
-      size_t i;
-      for (i = 0; rem[i].buf; ++i) {
-        printf("removing: %s\n", rem[i].buf);
-        remove(rem[i].buf);
+    if (rem) {
+      char * s = rem;
+
+      while (*s) {
+        printf("%s: %sremoving '%s'\n", argv0, ret & RET_NORUN ? "not " : "", s);
+
+        if (!(ret & RET_NORUN)) {
+          remove(s);
+        }
+
+        s += strlen(s) + 1;
       }
+
+      ret = 0;
+    }
+
+    if (ret & RET_NORUN) {
+      ret = 0;
     }
   }
 
@@ -548,9 +647,12 @@ main(int argc, char ** argv) {
   free(buf);
   return ret;
 help:
-  fprintf(stderr, YELLOW "%s" RESET ": %s", argv0, HELP DESC);
+  fprintf(stderr, YELLOW "%s" RESET ": %s\n", argv0, HELP DESC);
   return BAKE_ERROR;
 version:
-  fprintf(stderr, YELLOW "%s" RESET ": v%s\n", argv0, VERSION);
+  fprintf(stderr,
+          YELLOW "%s" RESET ": v" VERSION "\n"
+          "Copyright " COPYRIGHT "\n" LICENSE "\n",
+          argv0);
   return BAKE_ERROR;
 }
