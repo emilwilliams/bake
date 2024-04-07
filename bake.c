@@ -40,7 +40,7 @@
   "rest of line, or if found within the file, until the " BOLD "@STOP" RESET " marker.\n"             \
 
 #define DESC                                                                                \
-  "Options [Must always be first]\n"                                                        \
+  "Options [Must always be put first, may be merged together]\n"                            \
   "\t" DIM "-h --help" RESET", " BOLD "-n --dry-run" RESET ", " BOLD "-x --expunge\n" RESET \
   "Expansions\n"                                                                            \
   "\t" YELLOW "@FILENAME" RESET "  returns target-file                (abc.x.txt)\n"        \

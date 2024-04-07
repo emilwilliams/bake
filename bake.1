@@ -17,7 +17,7 @@ appears.
 \fBShake\fP does not support some features of \fBBake\fP, such as \fB@STOP\fP or \fBbinary files\fP,
 please avoid its use.
 
-Options [Only one, Must always be put first]
+Options [Must always be put first, may be merged together]
 
 .HP
 .B \-v \-\-version, \-h \-\-help, \-n \-\-dry\-run
@@ -27,13 +27,13 @@ Expansions
 These will expand to their counterpart statically first thing.
 These may only be inserted inside of markers.
 .TP
-.B $@
+.B @FILENAME, $@
 returns target\-file                (abc.x.txt)
 .TP
-.B $*
+.B @SHORT, $*
 returns target\-file without suffix (abc.x.txt \-> abc.x)
 .TP
-.B $+
+.B @ARGS, $+
 returns
 .B arguments
 

@@ -44,16 +44,25 @@ are still supported, avoid these in the future.
 They are most useful for a template command, such as:
  @BAKE cc @FILENAME -o @SHORT @ARGS
 
-Backslash, while otherwise ignored, will be respected at the end of the line
-to concatenate lines together or if added to before any of listed macros will
-yield the unfettered text.
+Backslash, while otherwise ignored, will be respected at the end of the line to
+concatenate lines together or if added to before any of listed macros will yield
+the unfettered text. \SPECIAL_NAME will result in SPECIAL_NAME in the executed
+shell command. Backslashes are applicable to all symbols used by Bake, they are
+ignored otherwise.
+
+--- Expunge Extension ---
+
+Removes any singular file or directory non recursively defined within @{...},
+this has no effect on the normal processing of the statement and is macro'd out
+before it is executed.
 
 --- Options ---
 
-only one option may be in use at a time, and must come as the first argument.
+Options must come as the first argument, and may be merged together, such as -xn.
 
  -h, --help: displays help message, similarly to empty input.
  -n, --dry-run: DRYRUN, does NOT run anything!
+ -x, --expunge: See above Expunge Extension section.
 
 --- Shake ---
 
