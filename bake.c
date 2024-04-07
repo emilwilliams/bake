@@ -539,8 +539,6 @@ main(int argc, char ** argv) {
 
   rem = remove_expand(buf);
 
-  printf(BOLD GREEN "%s" RESET ": %s\n", argv0, buf + strip(buf));
-
   if (!ret) {
     ret = run(buf, argv0);
 
