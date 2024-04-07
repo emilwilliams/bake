@@ -60,7 +60,8 @@ before it is executed.
 
 Options must come as the first argument, and may be merged together, such as -xn.
 
- -h, --help: displays help message, similarly to empty input.
+ -v, --version: display versioning and licensing information.
+ -h, --help: display the help message, similarly to empty input.
  -n, --dry-run: DRYRUN, does NOT run anything!
  -x, --expunge: See above Expunge Extension section.
 

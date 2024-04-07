@@ -39,20 +39,21 @@
   "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
   "rest of line, or if found within the file, until the " BOLD "@STOP" RESET " marker.\n"             \
 
-#define DESC                                                                                \
-  "Options [Must always be put first, may be merged together]\n"                            \
-  "\t" DIM "-h --help" RESET", " BOLD "-n --dry-run" RESET ", " BOLD "-x --expunge\n" RESET \
-  "Expansions\n"                                                                            \
-  "\t" YELLOW "@FILENAME" RESET "  returns target-file                (abc.x.txt)\n"        \
-  "\t" YELLOW "@SHORT   " RESET "  returns target-file without suffix (^-> abc.x)\n"        \
-  "\t" YELLOW "@ARGS    " RESET "  returns " GREEN "arguments" RESET "\n"                   \
-  "Additional Features And Notes\n"                                                         \
-  "\t" YELLOW "@{" RESET BOLD "EXPUNGE_THIS_FILE" YELLOW "}" RESET                          \
-  " inline region to delete this or many files or directories,\n"                           \
-  "\tnon-recursive, only one file per block, removed from left to right. This has no\n"     \
-  "\tinfluence on the normal command execution.\n"                                          \
-  "\t" YELLOW "\\" RESET                                                                    \
-  "SPECIAL_NAME will result in SPECIAL_NAME in the executed shell command.\n"               \
+#define DESC                                                                            \
+  "Options [Must always be put first, may be merged together]\n"                        \
+  "\t" DIM "-v --version" RESET ", " DIM "-h --help" RESET ", "                         \
+  BOLD "-n --dry-run" RESET ", " BOLD "-x --expunge\n" RESET                            \
+  "Expansions\n"                                                                        \
+  "\t" YELLOW "@FILENAME" RESET "  returns target-file                (abc.x.txt)\n"    \
+  "\t" YELLOW "@SHORT   " RESET "  returns target-file without suffix (^-> abc.x)\n"    \
+  "\t" YELLOW "@ARGS    " RESET "  returns " GREEN "arguments" RESET "\n"               \
+  "Additional Features And Notes\n"                                                     \
+  "\t" YELLOW "@{" RESET BOLD "EXPUNGE_THIS_FILE" YELLOW "}" RESET                      \
+  " inline region to delete this or many files or directories,\n"                       \
+  "\tnon-recursive, only one file per block, removed from left to right. This has no\n" \
+  "\tinfluence on the normal command execution.\n"                                      \
+  "\t" YELLOW "\\" RESET                                                                \
+  "SPECIAL_NAME will result in SPECIAL_NAME in the executed shell command.\n"           \
   "Backslashing is applicable to all meaningful symbols in Bake, it is ignored otherwise."
 
 #define COPYRIGHT "2023 Emil Williams"
