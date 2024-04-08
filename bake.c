@@ -68,6 +68,13 @@ enum {
   BAKE_MISSING_SUFFIX,
 };
 
+enum {
+  BAKE_RUN     =       0,
+  BAKE_NORUN   = (1 << 0),
+  BAKE_EXPUNGE = (1 << 1),
+};
+
+
 #define ARRLEN(a) (sizeof(a) / sizeof(a[0]))
 
 #if INCLUDE_AUTONOMOUS_COMPILE
@@ -78,8 +85,8 @@ enum {
 static int bake_errno;
 
 typedef struct {
-  char * buf;
   size_t len;
+  char * buf;
 } string_t;
 
 typedef string_t map_t;
@@ -199,8 +206,8 @@ get_region(string_t m, char * findstart, char * findstop) {
 
 static char *
 file_get_region(char * fn, char * start, char * stop) {
-  char * buf = NULL;
   map_t m = map(fn);
+  char * buf = NULL;
 
   if (m.buf) {
     buf = get_region(m, start, stop);
@@ -347,30 +354,38 @@ bake_expand(char * buf, char * filename, int argc, char ** argv) {
   return buf;
 }
 
-static char *
-remove_expand(char * buf) {
-  size_t i, f, plen = 0, len = 1, end = strlen(buf);
-  char * l = NULL;
+static void
+remove_expand(char * buf, char * argv0, int rm, char * start, char * stop) {
+  size_t i, f, end = strlen(buf);
+  size_t startlen = strlen(start), stoplen = strlen(stop);
+  char x[1] = {'\0'};
+
 
   for (i = 0; i < end; ++i) {
-    if (!strncmp(buf + i, EXPUNGE_START, strlen(EXPUNGE_START))) {
+    if (!strncmp(buf + i, start, startlen)) {
       if (buf + i > buf && buf[i - 1] == '\\') {
         continue;
       }
 
       for (f = i; f < end; ++f) {
-        if (!strncmp(buf + f, EXPUNGE_STOP, strlen(EXPUNGE_STOP))) {
+        if (!strncmp(buf + f, stop, stoplen)) {
           if (buf + f > buf && buf[f - 1] == '\\') {
             continue;
           }
 
           insert(buf + f, "", end - f, 0, 1);
-          i += strlen(EXPUNGE_START);
-          plen = (len != 1) * (len - 1);
-          len += f - i + 1;
-          l = realloc(l, len);
-          memcpy(l + plen, buf + i, f - i);
-          l[plen + f - i] = '\0';
+          i += startlen;
+
+          if (rm & BAKE_EXPUNGE) {
+            swap(buf + i + (f - i), x);
+            printf("%s: %sremoving '%s'\n",
+                   argv0, rm & BAKE_NORUN ? "not " : "", buf + i);
+            if (!(rm & BAKE_NORUN)) {
+              remove(buf + i);
+            }
+            swap(buf + i + (f - i), x);
+          }
+
           goto next;
         }
       }
@@ -382,13 +397,7 @@ remove_expand(char * buf) {
   }
 
 stop:
-  expand(buf, EXPUNGE_START, "");
-
-  if (l) {
-    l[len - 1] = '\0';
-  }
-
-  return l;
+  expand(buf, start, "");
 }
 
 /*** strip, run ***/
@@ -451,12 +460,10 @@ run(char * buf, char * argv0) {
 
 int
 main(int argc, char ** argv) {
-  enum { RET_RUN = 0, RET_NORUN = (1 << 0), RET_EXPUNGE = (1 << 1) };
-  int ret = RET_RUN;
-  char  * buf = NULL,
-          *  filename,
-          *  argv0;
-  char * rem;
+  int ret = BAKE_RUN;
+  char * buf = NULL,
+       * filename,
+       * argv0;
 
   argv0 = argv[0];
 
@@ -475,9 +482,9 @@ main(int argc, char ** argv) {
       } else if (!strcmp(argv[0], "version")) {
         goto version;
       } else if (!strcmp(argv[0], "expunge")) {
-        ret |= RET_EXPUNGE;
+        ret |= BAKE_EXPUNGE;
       } else if (!strcmp(argv[0], "dry-run")) {
-        ret |= RET_NORUN;
+        ret |= BAKE_NORUN;
       } else                                  {
         puts("UNKNOWN");
         goto help;
@@ -491,11 +498,11 @@ main(int argc, char ** argv) {
           goto version;
 
         case 'x':
-          ret |= RET_EXPUNGE;
+          ret |= BAKE_EXPUNGE;
           break;
 
         case 'n':
-          ret |= RET_NORUN;
+          ret |= BAKE_NORUN;
           break;
 
         case 0  :
@@ -524,11 +531,11 @@ main(int argc, char ** argv) {
   root(&filename);
   buf = file_get_region(filename, START, STOP);
 
-  char * error[2];
-  error[0] = "File Unrecognized";
-  error[1] = "Found start without suffix spacing";
-
   if (!buf) {
+    char * error[2];
+    error[0] = "File Unrecognized";
+    error[1] = "Found start without suffix spacing";
+
     fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' %s.\n",
             argv0, filename, errno ? strerror(errno) : error[bake_errno]);
     return BAKE_ERROR;
@@ -538,7 +545,7 @@ main(int argc, char ** argv) {
 
   printf(BOLD GREEN "%s" RESET ": %s\n", argv0, buf + strip(buf));
 
-  rem = remove_expand(buf);
+  remove_expand(buf, argv0, ret, EXPUNGE_START, EXPUNGE_STOP);
 
   if (!ret) {
     ret = run(buf, argv0);
@@ -546,29 +553,8 @@ main(int argc, char ** argv) {
     if (ret) {
       printf(BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret);
     }
-  } else if (ret & RET_EXPUNGE) {
-    if (rem) {
-      char * s = rem;
+  } else { ret = 0; }
 
-      while (*s) {
-        printf("%s: %sremoving '%s'\n", argv0, ret & RET_NORUN ? "not " : "", s);
-
-        if (!(ret & RET_NORUN)) {
-          remove(s);
-        }
-
-        s += strlen(s) + 1;
-      }
-
-      ret = 0;
-    }
-
-    if (ret & RET_NORUN) {
-      ret = 0;
-    }
-  }
-
-  free(rem);
   free(buf);
   return ret;
 help:
