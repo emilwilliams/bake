@@ -4,7 +4,7 @@
 
 # Issues: sloooow, fails to handle multi-line statements
 
-VERSION="20240302"
+VERSION="20240408"
 
 BLUE='\033[34m'
 GREEN='\033[32m'

@@ -32,7 +32,7 @@
 #define EXPUNGE_START "@{"
 #define EXPUNGE_STOP   "}"
 
-#define VERSION "20240404"
+#define VERSION "20240408"
 
 #define  HELP                                                                                         \
   BOLD "[option] target-file" RESET " [" GREEN "arguments" RESET " ...]\n"                            \
