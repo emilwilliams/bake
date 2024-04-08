@@ -56,9 +56,23 @@ Removes any singular file or directory non recursively defined within @{...},
 this has no effect on the normal processing of the statement and is macro'd out
 before it is executed.
 
+This is useful in such cases that you create a temporary file or output file
+that may be later recreated or may need to be manually updated. It is most
+useful for simple scrubbing of outputs. You could have a directory of toy
+programs and wish to clean them all up, and using a command like:
+
+for i in `ls *.c`; do bake -x $i; done
+
+This is of course can also be done with another UNIX command like the following,
+assuming the other files outside of the regexp are not important:
+
+ls | egrep -v '.+\.[ch]' | xargs rm
+
+This feature was suggested by the original author of Shake, blame him for this.
+
 --- Options ---
 
-Options must come as the first argument, and may be merged together, such as -xn.
+Options must come before the filename, and may be merged together, such as -xn.
 
  -v, --version: display versioning and licensing information.
  -h, --help: display the help message, similarly to empty input.
