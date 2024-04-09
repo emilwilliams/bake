@@ -83,7 +83,7 @@ Options must come before the filename, and may be merged together, such as -xn.
 
 Bake was inspired by the Bash-based Shake utility (formerly eMake,
 he liked my suggestion for a name).  It is included under authorization
-of it's creator.  The original version of Shake may be found at:
+of its creator.  The original version of Shake may be found at:
 <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
 
 Bake includes a modified Shake, both after installation and as a bootstrapper.

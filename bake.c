@@ -26,12 +26,6 @@
 
 #include "config.h"
 
-#define START "@BAKE"
-#define  STOP "@STOP"
-
-#define EXPUNGE_START "@{"
-#define EXPUNGE_STOP   "}"
-
 #define VERSION "20240408"
 
 #define  HELP                                                                                         \
@@ -65,13 +59,13 @@
 
 enum {
   BAKE_UNRECOGNIZED,
-  BAKE_MISSING_SUFFIX,
+  BAKE_MISSING_SUFFIX
 };
 
 enum {
   BAKE_RUN     =       0,
   BAKE_NORUN   = (1 << 0),
-  BAKE_EXPUNGE = (1 << 1),
+  BAKE_EXPUNGE = (1 << 1)
 };
 
 
@@ -129,9 +123,9 @@ static map_t
 map(char * fn) {
   struct stat s;
   int fd;
-  map_t m = (map_t) {
-    0
-  };
+  map_t m;
+  m.buf = NULL;
+  m.len = 0;
   fd = open(fn, O_RDONLY);
 
   if (fd != -1) {
@@ -313,7 +307,8 @@ bake_expand(char * buf, char * filename, int argc, char ** argv) {
   };
 
   char * macro[MACRO_NONE],
-       * macro_old[MACRO_STOP];
+       * macro_old[MACRO_STOP],
+       * global[MACRO_NONE];
 
   size_t i;
 
@@ -325,8 +320,6 @@ bake_expand(char * buf, char * filename, int argc, char ** argv) {
   macro_old[MACRO_FILENAME] = "$@";
   macro_old[MACRO_SHORT   ] = "$*";
   macro_old[MACRO_ARGS    ] = "$+";
-
-  char * global[4];
 
   global[MACRO_FILENAME] = filename;
   global[MACRO_SHORT   ] = shorten(filename);
@@ -378,11 +371,15 @@ remove_expand(char * buf, char * argv0, int rm, char * start, char * stop) {
 
           if (rm & BAKE_EXPUNGE) {
             swap(buf + i + (f - i), x);
+#if !ENABLE_EXPUNGE_REMOVE
             printf("%s: %sremoving '%s'\n",
                    argv0, rm & BAKE_NORUN ? "not " : "", buf + i);
             if (!(rm & BAKE_NORUN)) {
               remove(buf + i);
             }
+#else
+            printf("%s: not removing '%s'\n", argv0, buf + i);
+#endif
             swap(buf + i + (f - i), x);
           }
 
@@ -393,7 +390,7 @@ remove_expand(char * buf, char * argv0, int rm, char * start, char * stop) {
       goto stop;
     }
 
-  next:
+  next:;
   }
 
 stop:
@@ -429,8 +426,8 @@ strip(char * buf) {
 
 static int
 run(char * buf, char * argv0) {
-  puts(BOLD GREEN "output" RESET ":\n");
   pid_t pid;
+  puts(BOLD GREEN "output" RESET ":\n");
 
   if ((pid = fork()) == 0) {
     execl("/bin/sh", "sh", "-c", buf, NULL);
@@ -514,7 +511,7 @@ main(int argc, char ** argv) {
         }
       } while (++(argv[0]));
 
-  next:
+  next:;
   }
 
   filename = argv[0];

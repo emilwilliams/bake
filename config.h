@@ -6,12 +6,18 @@
 
 /* preferred,     @FILENAME @SHORT @ARGS */
 #define NEW_MACROS 1
+
 /*                $@        $*     $+    */
 #define OLD_MACROS 1
 
-/* ./bake bake will compile bake.c, basically just proves that binary files really are supported,
- * the bake.c file must exist next to the executable for this work correctly. Not meant as a serious feature,
- * DO NOT enable this by default or in user builds. */
+/* Disables the possibility of remove(1) ever being ran */
+#define ENABLE_EXPUNGE_REMOVE 0
+
+/* ./bake bake will compile bake.c, basically just proves that binary files
+ *  really are supported, the bake.c file must exist next to the executable for
+ *  this work correctly. Not meant as a serious feature, DO NOT enable this by
+ *  default or in user builds.
+ */
 #define INCLUDE_AUTONOMOUS_COMPILE 0
 
 #if ENABLE_COLOR == 1
@@ -36,3 +42,20 @@
 # define   BOLD
 # define  RESET
 #endif
+
+/* It's best if you don't change these */
+
+/* sed -i 's/@COMPILECMD/@BAKE/g' <<<YOUR FILES...>>> */
+#define I_USE_LEGACY_CODE_AND_REFUSE_TO_UPGRADE 0
+
+#if I_USE_LEGACY_CODE_AND_REFUSE_TO_UPGRADE
+# define START "@COMPILECMD"
+# warning | use sed -i 's/@COMPILECMD/@BAKE/g' <YOUR LEGACY FILES...> instead
+#endif /* I_USE_LEGACY_CODE_AND_REFUSE_TO_UPGRADE */
+
+#undef  START
+#define START "@BAKE"
+#define  STOP "@STOP"
+
+#define EXPUNGE_START "@{"
+#define EXPUNGE_STOP   "}"
