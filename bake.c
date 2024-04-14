@@ -27,7 +27,7 @@
 
 #include "config.h"
 
-#define VERSION "20240408"
+#define VERSION "20240413"
 
 #define  HELP                                                                                         \
   BOLD "[option] target-file" RESET " [" GREEN "arguments" RESET " ...]\n"                            \
