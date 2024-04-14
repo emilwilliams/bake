@@ -8,15 +8,15 @@ You may have multi-line commands, by either including a leading @STOP or by
  ending each line with a backslash.
 
 The execution takes place at the root of the target file, so if you have:
-`test/file.c', and then execution takes place at `test' and the file is
-simply regarded as `file.c'.
+`test/file.c', and then execution takes place at `test' and the file is simply
+regarded as `file.c'.
 
-you may see a real example in the primary and only source file: `bake.c'.
-this is not targeted toward any language and should be fairly flexible,
-especially when multi-line comments are available.  You should always
-consider your usecase before using a tool like this.  Bake is not an
-all-in-one solution, nor is it designed to be a sophisticated build system,
-consider something like GNU Make or Meson instead.
+you may see a real example in the primary and only source file: `bake.c'.  this
+is not targeted toward any language and should be fairly flexible, especially
+when multi-line comments are available.  You should always consider your usecase
+before using a tool like this.  Bake is not an all-in-one solution, nor is it
+designed to be a sophisticated build system, consider something like GNU Make or
+Meson instead.
 
 Binary files (files that contain characters < ' ' or > '~') are supported.
 
@@ -26,23 +26,22 @@ Manpages are included: bake(1) shake(1)
 
 Bootstrapping may be done with Shake, simply run `./shake ./bake.c'
 
-Or simply run `install.sh', you'll need to be a privileged user to
-install the files. See the file's content for more details regarding
-the installation.
+Or simply run `install.sh', you'll need to be a privileged user to install the
+files. See the file's content for more details regarding the installation.
 
 --- Macro Extension ---
 
 Macro provides various descriptive factors about the current context:
 
- @FILENAME :  Filename of the baked file         (abc.x.txt)
- @SHORT    :  Shortened version of the Filename  (^-> abc.x)
- @ARGS     :  the remaining arguments to Bake
+ @FILENAME : Filename of the baked file (abc.x.txt) @SHORT : Shortened version
+ of the Filename (^-> abc.x) @ARGS : the remaining arguments to Bake
 
-$@, $*, $+, respectively mapped to @FILENAME, @SHORT, and @ARGS,
-are still supported, avoid these in the future.
+$@, $*, $+, are respectively mapped to @FILENAME, @SHORT, and @ARGS.  They have
+been partially deprecated, however they'll never be removed, use them if you'd
+like.
 
-They are most useful for a template command, such as:
- @BAKE cc @FILENAME -o @SHORT @ARGS
+They are most useful for a template command, such as: @BAKE cc @FILENAME -o
+ @SHORT @ARGS
 
 Backslash, while otherwise ignored, will be respected at the end of the line to
 concatenate lines together or if added to before any of listed macros will yield
@@ -74,17 +73,16 @@ This feature was suggested by the original author of Shake, blame him for this.
 
 Options must come before the filename, and may be merged together, such as -xn.
 
- -v, --version: display versioning and licensing information.
- -h, --help: display the help message, similarly to empty input.
- -n, --dry-run: DRYRUN, does NOT run anything!
- -x, --expunge: See above Expunge Extension section.
- -c, --color: Disables color for a clean output.
+ -v, --version: display versioning and licensing information.  h, --help:
+ -display the help message, similarly to empty input.  n, --dry-run: DRYRUN,
+ -does NOT run anything!  x, --expunge: See above Expunge Extension section.  c,
+ ---color: Disables color for a clean output.
 
 --- Shake ---
 
-Bake was inspired by the Bash-based Shake utility (formerly eMake,
-he liked my suggestion for a name).  It is included under authorization
-of its creator.  The original version of Shake may be found at:
+Bake was inspired by the Bash-based Shake utility (formerly eMake, he liked my
+suggestion for a name).  It is included under authorization of its creator.  The
+original version of Shake may be found at:
 <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
 
 Bake includes a modified Shake, both after installation and as a bootstrapper.
