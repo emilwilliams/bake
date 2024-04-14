@@ -78,6 +78,7 @@ Options must come before the filename, and may be merged together, such as -xn.
  -h, --help: display the help message, similarly to empty input.
  -n, --dry-run: DRYRUN, does NOT run anything!
  -x, --expunge: See above Expunge Extension section.
+ -c, --color: Disables color for a clean output.
 
 --- Shake ---
 

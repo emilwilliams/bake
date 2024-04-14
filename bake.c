@@ -6,6 +6,7 @@
  * @BAKE cc -std=c89 -O2 @FILENAME -o @{@SHORT} @ARGS @STOP
  */
 
+#define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
 #include <assert.h>
@@ -31,12 +32,13 @@
 #define  HELP                                                                                         \
   BOLD "[option] target-file" RESET " [" GREEN "arguments" RESET " ...]\n"                            \
   "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
-  "rest of line, or if found within the file, until the " BOLD "@STOP" RESET " marker.\n"             \
+  "rest of line, or if found within the file, until the " BOLD "@STOP" RESET " marker.\n"
 
 #define DESC                                                                            \
   "Options [Must always be put first, may be merged together]\n"                        \
   "\t" DIM "-v --version" RESET ", " DIM "-h --help" RESET ", "                         \
-  BOLD "-n --dry-run" RESET ", " BOLD "-x --expunge\n" RESET                            \
+  BOLD "-n --dry-run" RESET ", " BOLD "-x --expunge\n" RESET ", "                       \
+  BOLD "-c --color" RESET                                                               \
   "Expansions\n"                                                                        \
   "\t" YELLOW "@FILENAME" RESET "  returns target-file                (abc.x.txt)\n"    \
   "\t" YELLOW "@SHORT   " RESET "  returns target-file without suffix (^-> abc.x)\n"    \
@@ -84,6 +86,48 @@ typedef struct {
 } string_t;
 
 typedef string_t map_t;
+
+/*** nocolor printf ***/
+
+#if ENABLE_COLOR
+# define color_printf(...) color_fprintf(stdout, __VA_ARGS__)
+/* not perfect, too simple, doesn't work with a var, only a literal. */
+# define color_puts(msg) color_fprintf(stdout, msg "\n")
+
+int color = ENABLE_COLOR;
+
+static char * expand(char * buf, char * macro, char * with);
+
+color_fprintf(FILE * fp, char * format, ...) {
+  va_list ap;
+  char * buf;
+  va_start(ap, format);
+  if (!color) {
+
+    vasprintf(&buf, format, ap);
+
+    if (buf) {
+      expand(buf, RED, "");
+      expand(buf, GREEN, "");
+      expand(buf, YELLOW, "");
+      expand(buf, DIM, "");
+      expand(buf, BOLD, "");
+      expand(buf, RESET, "");
+
+      fwrite(buf, strlen(buf), 1, fp);
+    }
+
+    free(buf);
+  } else {
+    vfprintf(fp, format, ap);
+  }
+  va_end(ap);
+
+}
+#else
+# define color_printf(...) fprintf(stdout, __VA_ARGS__)
+# define color_puts(msg) puts(msg)
+#endif
 
 /*** root ***/
 
@@ -372,13 +416,15 @@ remove_expand(char * buf, char * argv0, int rm, char * start, char * stop) {
           if (rm & BAKE_EXPUNGE) {
             swap(buf + i + (f - i), x);
 #if !ENABLE_EXPUNGE_REMOVE
-            printf("%s: %sremoving '%s'\n",
-                   argv0, rm & BAKE_NORUN ? "not " : "", buf + i);
+            color_printf("%s: %sremoving '%s'\n",
+                         argv0, rm & BAKE_NORUN ? "not " : "", buf + i);
+
             if (!(rm & BAKE_NORUN)) {
               remove(buf + i);
             }
+
 #else
-            printf("%s: not removing '%s'\n", argv0, buf + i);
+            color_printf("%s: not removing '%s'\n", argv0, buf + i);
 #endif
             swap(buf + i + (f - i), x);
           }
@@ -427,21 +473,21 @@ strip(char * buf) {
 static int
 run(char * buf, char * argv0) {
   pid_t pid;
-  puts(BOLD GREEN "output" RESET ":\n");
+  color_puts(BOLD GREEN "output" RESET ":\n");
 
   if ((pid = fork()) == 0) {
     execl("/bin/sh", "sh", "-c", buf, NULL);
     return 0; /* execl overwrites the process anyways */
   } else if (pid == -1) {
-    fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n",
-            argv0, "Fork Error", strerror(errno));
+    color_fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n",
+                  argv0, "Fork Error", strerror(errno));
     return BAKE_ERROR;
   } else {
     int status;
 
     if (waitpid(pid, &status, 0) < 0) {
-      fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n",
-              argv0, "Wait PID Error", strerror(errno));
+      color_fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n",
+                    argv0, "Wait PID Error", strerror(errno));
       return BAKE_ERROR;
     }
 
@@ -459,8 +505,8 @@ int
 main(int argc, char ** argv) {
   int ret = BAKE_RUN;
   char * buf = NULL,
-       * filename,
-       * argv0;
+         * filename,
+         * argv0;
 
   argv0 = argv[0];
 
@@ -482,8 +528,11 @@ main(int argc, char ** argv) {
         ret |= BAKE_EXPUNGE;
       } else if (!strcmp(argv[0], "dry-run")) {
         ret |= BAKE_NORUN;
+      } else if (!strcmp(argv[0],   "color")) {
+#if ENABLE_COLOR
+        color = 0;
+#endif
       } else                                  {
-        puts("UNKNOWN");
         goto help;
       }
     } else do {
@@ -502,11 +551,18 @@ main(int argc, char ** argv) {
           ret |= BAKE_NORUN;
           break;
 
+#if ENABLE_COLOR
+
+        case 'c':
+          color = 0;
+          break;
+#endif
+
         case 0  :
           goto next;
 
         default :
-          puts("UNKNOWN");
+          color_puts("UNKNOWN");
           goto help;
         }
       } while (++(argv[0]));
@@ -518,10 +574,10 @@ main(int argc, char ** argv) {
   ++argv, --argc;
 
   if (strlen(filename) > FILENAME_LIMIT) {
-    fprintf(stderr, BOLD RED "%s" RESET
-            ": Filename too long (exceeds %d)\n",
-            argv0,
-            FILENAME_LIMIT);
+    color_fprintf(stderr, BOLD RED "%s" RESET
+                  ": Filename too long (exceeds %d)\n",
+                  argv0,
+                  FILENAME_LIMIT);
     return BAKE_ERROR;
   }
 
@@ -533,14 +589,14 @@ main(int argc, char ** argv) {
     error[0] = "File Unrecognized";
     error[1] = "Found start without suffix spacing";
 
-    fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' %s.\n",
-            argv0, filename, errno ? strerror(errno) : error[bake_errno]);
+    color_fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' %s.\n",
+                  argv0, filename, errno ? strerror(errno) : error[bake_errno]);
     return BAKE_ERROR;
   }
 
   buf = bake_expand(buf, filename, argc, argv);
 
-  printf(BOLD GREEN "%s" RESET ": %s\n", argv0, buf + strip(buf));
+  color_printf(BOLD GREEN "%s" RESET ": %s\n", argv0, buf + strip(buf));
 
   remove_expand(buf, argv0, ret, EXPUNGE_START, EXPUNGE_STOP);
 
@@ -548,19 +604,19 @@ main(int argc, char ** argv) {
     ret = run(buf, argv0);
 
     if (ret) {
-      printf(BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret);
+      color_printf(BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret);
     }
   } else { ret = 0; }
 
   free(buf);
   return ret;
 help:
-  fprintf(stderr, YELLOW "%s" RESET ": %s\n", argv0, HELP DESC);
+  color_fprintf(stderr, YELLOW "%s" RESET ": %s\n", argv0, HELP DESC);
   return BAKE_ERROR;
 version:
-  fprintf(stderr,
-          YELLOW "%s" RESET ": v" VERSION "\n"
-          "Copyright " COPYRIGHT "\n" LICENSE "\n",
-          argv0);
+  color_fprintf(stderr,
+                YELLOW "%s" RESET ": v" VERSION "\n"
+                "Copyright " COPYRIGHT "\n" LICENSE "\n",
+                argv0);
   return BAKE_ERROR;
 }

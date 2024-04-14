@@ -17,18 +17,18 @@ appears.
 \fBShake\fP does not support some features of \fBBake\fP, such as \fB@STOP\fP or \fBbinary files\fP,
 please avoid its use.
 
-Options [Must always be put first, may be merged together]
+Options must always be put first, and may be merged together.
 
 .HP
-.B \-v \-\-version, \-h \-\-help, \-n \-\-dry\-run, \-x \-\-expunge
+\-v \-\-version, \-h \-\-help, \fB\-n \-\-dry\-run\fP, \fB\-x \-\-expunge\fP,
+\fB\-c \-\-color\fP
 .PP
 Expansions
 
-These will expand to their counterpart statically first thing.
-These may only be inserted inside of markers.
+These symbols will expand to their counterpart before execution.
 .TP
 .B @FILENAME, $@
-returns target\-file                (abc.x.txt)
+returns target\-file (abc.x.txt)
 .TP
 .B @SHORT, $*
 returns target\-file without suffix (abc.x.txt \-> abc.x)
@@ -40,18 +40,35 @@ returns
 .PP
 Additional Features And Notes
 
-\fB@{\fPEXPUNGE_THIS_FILE\fB}\fP is a inline block to delete files or directories, non-recursive, only one file per block, removed from left to right.  Has no influence on the normal command execution.
+Shell execution may be disabled with the
+.B -n or --dry-run
+option.
 
-\\SPECIAL_NAME will result in SPECIAL_NAME in the executed shell command. Backslashes are applicable to all symbols used by Bake, they are ignored otherwise.
+\fB@{\fPEXPUNGE_THIS_FILE\fB}\fP is a inline block to delete files or
+directories, non-recursive, only one file per block, removed from left to right.
+Has no influence on the normal command execution. The deletion only occurs if
+you use the
+.B -x or --expunge
+option.
+
+Colors may be disabled with the
+.B -c or --color
+option.
+
+\\SPECIAL_NAME will result in SPECIAL_NAME in the executed shell
+command. Backslashes are applicable to all symbols used by Bake, they are
+ignored otherwise.
 
 .SH EXAMPLE
 .\" SRC BEGIN (example.c)
 .EX
 // example.c
-// @BAKE cc $@ -o $*
+// @BAKE cc -o @{@SHORT} @FILENAME @ARGS
+// or, simply, @BAKE cc -o @{$*} $@ $+
 #include <stdio.h>
 int main (void) {
-    printf("Hello.");
+    puts("Hello.");
+	return 0;
 }
 .EE
 .SH COPYRIGHT
