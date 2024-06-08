@@ -37,8 +37,8 @@
 #define DESC                                                                            \
   "Options [Must always be put first, may be merged together]\n"                        \
   "\t" DIM "-v --version" RESET ", " DIM "-h --help" RESET ", "                         \
-  BOLD "-n --dry-run" RESET ", " BOLD "-x --expunge\n" RESET ", "                       \
-  BOLD "-c --color" RESET                                                               \
+  BOLD "-n --dry-run" RESET ", " BOLD "-x --expunge" RESET ", "                         \
+  BOLD "-c --color\n" RESET                                                             \
   "Expansions\n"                                                                        \
   "\t" YELLOW "@FILENAME" RESET "  returns target-file                (abc.x.txt)\n"    \
   "\t" YELLOW "@SHORT   " RESET "  returns target-file without suffix (^-> abc.x)\n"    \
@@ -568,6 +568,14 @@ main(int argc, char ** argv) {
       } while (++(argv[0]));
 
   next:;
+  }
+
+  if (!argc)
+  {
+    color_fprintf(stderr, BOLD RED "%s" RESET
+                  ": No filename provided\n",
+                  argv0);
+    return BAKE_ERROR;
   }
 
   filename = argv[0];
