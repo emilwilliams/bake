@@ -1,96 +1,66 @@
---- Bake ---
+--- README
 
-Bake scripts into files.
+A tool to run embedded scripts.
 
-Executes @BAKE to the end of the line or until @STOP within in any given file.
+Bootstrap with ./shake bake.c
+then compile further with ./bake,
+install by running ./install.sh
 
-You may have multi-line commands, by either including a leading @STOP or by
- ending each line with a backslash.
+---
 
-The execution takes place at the root of the target file, so if you have:
-`test/file.c', and then execution takes place at `test' and the file is simply
-regarded as `file.c'.
+bake [-chln] [-s <n>] <FILENAME> [ARGS...]; version 20240804
 
-you may see a real example in the primary and only source file: `bake.c'.  this
-is not targeted toward any language and should be fairly flexible, especially
-when multi-line comments are available.  You should always consider your usecase
-before using a tool like this.  Bake is not an all-in-one solution, nor is it
-designed to be a sophisticated build system, consider something like GNU Make or
-Meson instead.
+Bake is a simple tool meant to execute embedded shell commands within
+any file.  It executes with /bin/sh the command after a "@BAKE " to
+the end of the line (a UNIX newline: '\n').
 
-Binary files (files that contain characters < ' ' or > '~') are supported.
+It expands some macros,
+	@NAME  - filename
+	@SHORT - shortened filename
+	@ARGS  - other arguments to the program
+	@LINE  - line number at the selected @BAKE
 
-Manpages are included: bake(1) shake(1)
+All macros can be exempted by prefixing them with a backslash,
+which'll be subtracted in the expansion. multi-line commands may be
+done by a leading backslash, which are NOT subtracted.
 
---- Building ---
+It has five options, this message (-h, --help); prevents the execution
+of the shell command (-n, --dry-run); disable color (-c, --color); list
+(-l, --list) and select (-s<n>, --select <n>) which respectively lists
+all @BAKE commands and select & run the Nth command.
 
-Bootstrapping may be done with Shake, simply run `./shake ./bake.c'
+It roots the shell execution in the directory of the given file.
 
-Or simply run `install.sh', you'll need to be a privileged user to install the
-files. See the file's content for more details regarding the installation.
+Licensed under the public domain.
 
---- Macro Extension ---
+---
 
-Macro provides various descriptive factors about the current context:
+Shake
 
- @FILENAME : Filename of the baked file (abc.x.txt)
- @SHORT : Shortened version of the Filename (^-> abc.x)
- @ARGS : the remaining arguments to Bake
-
-$@, $*, $+, are respectively mapped to @FILENAME, @SHORT, and @ARGS.  They have
-been partially deprecated, however they'll never be removed, use them if you'd
-like.
-
-They are most useful for a general template command, such as:
-
-@BAKE cc @FILENAME -o @{@SHORT} @ARGS
-
-Backslash, while otherwise ignored, will be respected at the end of the line to
-concatenate lines together or if added to before any of listed macros will yield
-the unfettered text. \SPECIAL_NAME will result in SPECIAL_NAME in the executed
-shell command. Backslashes are applicable to all symbols used by Bake.
-
---- Expunge Extension ---
-
-Removes any singular file or directory non recursively defined within @{...},
-this has no effect on the normal processing of the statement and is macro'd out
-before it is executed.
-
-This is useful in such cases that you create a temporary file or output file
-that may be later recreated or may need to be manually updated. It is most
-useful for simple scrubbing of outputs. You could have a directory of toy
-programs and wish to clean them all up, and using a command like:
-
-for i in `ls *.c`; do bake -x $i; done
-
-This is of course can also be done with another UNIX command like the following,
-assuming the other files outside of the regexp are not important:
-
-ls | egrep -v '.+\.[ch]' | xargs rm
-
-This feature was suggested by the original author of Shake, blame him for this.
-
---- Options ---
-
-Options must come before the filename, and may be merged together, such as -cxn.
-
- -v, --version: Display versioning and licensing information.
- -h,    --help: Display the help message, similarly to empty input.
- -n, --dry-run: DRYRUN: does NOT run anything!
- -x, --expunge: See above Expunge Extension section.
- -c,   --color: Disables color for a clean output.
-
---- Shake ---
-
-Bake was inspired by the Bash-based Shake utility (formerly eMake, he liked my
-suggestion for a name).  It is included under authorization of its creator.  The
-original version of Shake may be found at:
+Bake was inspired by the Bash-based Shake utility (formerly eMake, he
+liked my suggestion for a name).  It is included under authorization
+of its creator.  The original version of Shake may be found at:
 <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
 
-Bake includes a modified Shake, both after installation and as a bootstrapper.
-The modified version includes all features of Bake with the exceptions of
-multi-line commands.  It is not a general replacement for Bake.
+Bake includes a modified Shake, both after installation and as a
+bootstrapper.  The modified version includes all features of Bake with
+the exceptions of multi-line commands.  It is not a general
+replacement for Bake.
 
-Bake is licensed under the GPLv3-only, See LICENSE.
+Changelog
 
-Bake was created on September 13th, 2023, and is complete as of 2024/03/02.
+Bake was created on 2023/09/13, and is complete as of 2024/03/02.
+
+24/08/04 - Updated version!
+
+Bake is has been finished for a while but I thought the code could use
+a checkup with GNU complexity, and this gave me a reason to rewrite
+the important parts into a more sane manner. I had, at the same time,
+been requested to extend Bake with the @LINE and list/select.
+
+The changeset is large enough to possibly introduce bugs, and the last
+version of Bake is, in my opinion, highly reliable. This newer version
+needs to be tested a bit more to confirm full compatibility.
+
+changes - Rewrite of the code; Removal of -x --expunge; Addition of
+@LINE & @NAME, list, & select.

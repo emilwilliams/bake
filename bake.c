@@ -1,21 +1,12 @@
-/* bake.c - Ever burned a cake?
- * Copyright 2023 Emil Williams
- *
- * Licensed under the GNU Public License version 3 only, see LICENSE.
- *
- * @BAKE cc -std=c89 -O2 @FILENAME -o @{@SHORT} @ARGS @STOP
- */
+// @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o @SHORT @FILENAME @ARGS
 
 #define _GNU_SOURCE
-#define _POSIX_C_SOURCE 200809L
 
-#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <locale.h>
+#include <limits.h>
 #include <stdarg.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,608 +14,328 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <limits.h>
 
-#include "config.h"
+#define BUFFER_SIZE (1 << 12)
 
-#define VERSION "20240413"
+#define START ("@" "BAKE" " ")
+#define STOP  ("@" "STOP")
 
-#define  HELP                                                                                         \
-  BOLD "[option] target-file" RESET " [" GREEN "arguments" RESET " ...]\n"                            \
-  "Use the format `" BOLD "@BAKE" RESET " cmd ...' within the target-file, this will execute the\n"   \
-  "rest of line, or if found within the file, until the " BOLD "@STOP" RESET " marker.\n"
+#define AUTONOMOUS_COMPILE 0
 
-#define DESC                                                                            \
-  "Options [Must always be put first, may be merged together]\n"                        \
-  "\t" DIM "-v --version" RESET ", " DIM "-h --help" RESET ", "                         \
-  BOLD "-n --dry-run" RESET ", " BOLD "-x --expunge" RESET ", "                         \
-  BOLD "-c --color\n" RESET                                                             \
-  "Expansions\n"                                                                        \
-  "\t" YELLOW "@FILENAME" RESET "  returns target-file                (abc.x.txt)\n"    \
-  "\t" YELLOW "@SHORT   " RESET "  returns target-file without suffix (^-> abc.x)\n"    \
-  "\t" YELLOW "@ARGS    " RESET "  returns " GREEN "arguments" RESET "\n"               \
-  "Additional Features And Notes\n"                                                     \
-  "\t" YELLOW "@{" RESET BOLD "EXPUNGE_THIS_FILE" YELLOW "}" RESET                      \
-  " inline region to delete this or many files or directories,\n"                       \
-  "\tnon-recursive, only one file per block, removed from left to right. This has no\n" \
-  "\tinfluence on the normal command execution.\n"                                      \
-  "\t" YELLOW "\\" RESET                                                                \
-  "SPECIAL_NAME will result in SPECIAL_NAME in the executed shell command.\n"           \
-  "Backslashing is applicable to all meaningful symbols in Bake, it is ignored otherwise."
+#define ENABLE_COLOR 1
 
-#define COPYRIGHT "2023 Emil Williams"
-#define LICENSE "Licensed under the GNU Public License version 3 only, see LICENSE."
-
-#define FILENAME_LIMIT (FILENAME_MAX)
-
-#define BAKE_ERROR 127
-
-enum {
-  BAKE_UNRECOGNIZED,
-  BAKE_MISSING_SUFFIX
-};
-
-enum {
-  BAKE_RUN     =       0,
-  BAKE_NORUN   = (1 << 0),
-  BAKE_EXPUNGE = (1 << 1)
-};
-
-
-#define ARRLEN(a) (sizeof(a) / sizeof(a[0]))
-
-#if INCLUDE_AUTONOMOUS_COMPILE
-  __attribute__((__section__(".text"))) static char autonomous_compile[] =
-  "@BAKE cc -std=c89 -O2 $@.c -o $@ $+ @STOP";
-#endif
-
-static int bake_errno;
-
-typedef struct {
-  size_t len;
-  char * buf;
-} string_t;
-
-typedef string_t map_t;
-
-/*** nocolor printf ***/
-
-#if ENABLE_COLOR
-# define color_printf(...) color_fprintf(stdout, __VA_ARGS__)
-/* not perfect, too simple, doesn't work with a var, only a literal. */
-# define color_puts(msg) color_fprintf(stdout, msg "\n")
-
-int color = ENABLE_COLOR;
-
-static char * expand(char * buf, char * macro, char * with);
-
-color_fprintf(FILE * fp, char * format, ...) {
-  va_list ap;
-  char * buf;
-  va_start(ap, format);
-  if (!color) {
-
-    vasprintf(&buf, format, ap);
-
-    if (buf) {
-      expand(buf, RED, "");
-      expand(buf, GREEN, "");
-      expand(buf, YELLOW, "");
-      expand(buf, DIM, "");
-      expand(buf, BOLD, "");
-      expand(buf, RESET, "");
-
-      fwrite(buf, strlen(buf), 1, fp);
-    }
-
-    free(buf);
-  } else {
-    vfprintf(fp, format, ap);
-  }
-  va_end(ap);
-
-}
+#if ENABLE_COLOR == 1
+# define    RED "\033[91m"
+# define  GREEN "\033[92m"
+# define YELLOW "\033[93m"
+# define   BOLD "\033[1m"
+# define  RESET "\033[0m"
+#elif ENABLE_COLOR
+# define    RED "\033[91;5m"
+# define  GREEN "\033[96;7m"
+# define YELLOW "\033[94m"
+# define   BOLD "\033[1;4m"
+# define  RESET "\033[0m"
 #else
-# define color_printf(...) fprintf(stdout, __VA_ARGS__)
-# define color_puts(msg) puts(msg)
+# define    RED
+# define  GREEN
+# define YELLOW
+# define   BOLD
+# define  RESET
 #endif
 
-/*** root ***/
+#define ARRLEN(x) (sizeof (x) / sizeof (x [0]))
+
+#if AUTONOMOUS_COMPILE
+__attribute__((__section__(".text"))) static char autonomous_compile [] =
+  "@BAKE" " cc -w @FILENAME.c -o @FILENAME @ARGS\n";
+#endif
 
 static void
-swap(char * a, char * b) {
+swap (char * a, char * b) {
   *a ^= *b;
   *b ^= *a;
   *a ^= *b;
 }
 
 static int
-root(char ** rootp) {
-  char x[1] = {'\0'};
+root (char ** rootp) {
+  char x [1] = {'\0'};
   char * root = *rootp;
-  size_t len = strlen(root);
+  size_t len = strlen (root);
   int ret;
-
-  while (len && root[len] != '/') {
-    --len;
-  }
-
-  if (!len) {
-    return 0;
-  }
-
-  swap(root + len, x);
-  ret = chdir(root);
-  swap(root + len, x);
-
+  while (len && root [len] != '/') { --len; }
+  if (!len) { return 0; }
+  swap (root + len, x);
+  ret = chdir (root);
+  swap (root + len, x);
   *rootp += len + 1;
   return ret;
 }
 
-/*** find region in file ***/
-
-static map_t
-map(char * fn) {
-  struct stat s;
-  int fd;
-  map_t m;
-  m.buf = NULL;
-  m.len = 0;
-  fd = open(fn, O_RDONLY);
-
-  if (fd != -1) {
-    if (!fstat(fd, &s)
-        &&   s.st_mode & S_IFREG
-        &&   s.st_size) {
-      m.len = (size_t) s.st_size;
-      m.buf = (char *) mmap(NULL, m.len, PROT_READ, MAP_SHARED, fd, 0);
-    }
-
-    close(fd);
-  }
-
-  return m;
-}
-
 static char *
-find(char * buf, char * x, char * end) {
-  size_t xlen = strlen(x);
-  char * start = buf;
-
-  for (; buf <= end - xlen; ++buf) {
-    if (!strncmp(buf, x, xlen)) {
-      if (start < buf && buf[-1] == '\\') {
-        continue;
-      } else {
-        return buf;
-      }
-    }
-  }
-
-  return NULL;
-}
-
-static char *
-get_region(string_t m, char * findstart, char * findstop) {
-  char * buf = NULL, * start, * stop, * end = m.len + m.buf;
-  start = find(m.buf, findstart, end);
-
-  if (start) {
-    start += strlen(findstart);
-
-#ifdef REQUIRE_SPACE
-
-    if (!isspace(*start)) {
-      bake_errno = BAKE_MISSING_SUFFIX;
-      return NULL;
-    }
-
-#endif /* REQUIRE_SPACE */
-
-    stop = find(start, findstop, end);
-
-    if (!stop) {
-      stop = start;
-
-      while (stop < end && *stop != '\n') {
-        if (stop[0] == '\\'
-            &&  stop[1] == '\n') {
-          stop += 2;
-        }
-
-        ++stop;
-      }
-    }
-
-    buf = strndup(start, (size_t)(stop - start));
-  }
-
-  return buf;
-}
-
-static char *
-file_get_region(char * fn, char * start, char * stop) {
-  map_t m = map(fn);
-  char * buf = NULL;
-
-  if (m.buf) {
-    buf = get_region(m, start, stop);
-    munmap(m.buf, m.len);
-  }
-
-  return buf;
-}
-
-/*** g_short, g_all ***/
-
-static char *
-shorten(char * fn) {
+shorten (char * filename) {
   size_t i, last, len;
-  static char sh[FILENAME_LIMIT];
-  len = strlen(fn);
-
+  static char sh [FILENAME_MAX];
+  len = strlen (filename);
   for (last = i = 0; i < len; ++i) {
-    if (fn[i] == '.') {
-      last = i;
-    }
+    if (filename [i] == '.') { last = i; }
   }
-
   last = last ? last : i;
-  strncpy(sh, fn, last);
-  sh[last] = '\0';
+  strncpy (sh, filename, last);
+  sh [last] = '\0';
   return sh;
 }
 
 static char *
-all_args(size_t argc, char ** argv) {
-  char * all = NULL;
-
+all_args (size_t argc, char ** argv) {
+  static char buffer [BUFFER_SIZE] = {0};
   if (argc > 0) {
     size_t i, len = argc;
-
-    for (i = 0; i < argc; ++i) {
-      len += strlen(argv[i]);
-    }
-
-    all = malloc(len + 1);
-    all[len] = '\0';
-
+    for (i = 0; i < argc; ++i) { len += strlen (argv [i]); }
+    buffer [len] = '\0';
     for (len = 0, i = 0; i < argc; ++i) {
-      strcpy(all + len, argv[i]);
-      len += strlen(argv[i]) + 1;
-
-      if (i + 1 < argc) {
-        all[len - 1] = ' ';
-      }
-    }
-  }
-
-  return all ? all : calloc(1, 1);
+      strcpy (buffer + len, argv [i]);
+      len += strlen (argv [i]) + 1;
+      if (i + 1 < argc) { buffer [len - 1] = ' '; }
+  }}
+  return buffer;
 }
 
-/*** insert, expand, bake_expand ***/
-
-static void
-insert(char * str, char * new, size_t slen, size_t nlen, size_t shift) {
-  memmove(str + nlen, str + shift, slen + 1 - shift);
-  memcpy(str, new, nlen);
-}
-
-static char *
-expand(char * buf, char * macro, char * with) {
-  ssize_t i,
-          blen = strlen(buf),
-          mlen = strlen(macro),
-          wlen = strlen(with),
-          nlen;
-  fflush(stdout);
-
-  for (i = 0; i < blen - mlen + 1; ++i) {
-    if (!strncmp(buf + i, macro, mlen)) {
-      if (i && buf[i - 1] == '\\') {
-        memmove(buf + i - 1, buf + i, blen - i);
-        buf[blen - 1] = '\0';
-      } else {
-        nlen = wlen - mlen + 1;
-
-        if (nlen > 0) {
-          buf = realloc(buf, blen + nlen);
-        }
-
-        insert(buf + i, with, blen - i, wlen, mlen);
-        blen += (nlen > 0) * nlen;
-      }
-    }
-  }
-
-  return buf;
-}
-
-static char *
-bake_expand(char * buf, char * filename, int argc, char ** argv) {
-  enum {
-    MACRO_FILENAME,
-    MACRO_SHORT,
-    MACRO_ARGS,
-    MACRO_STOP,
-    MACRO_NONE
-  };
-
-  char * macro[MACRO_NONE],
-       * macro_old[MACRO_STOP],
-       * global[MACRO_NONE];
-
-  size_t i;
-
-  macro[MACRO_FILENAME] = "@FILENAME";
-  macro[MACRO_SHORT   ] =    "@SHORT";
-  macro[MACRO_ARGS    ] =     "@ARGS";
-  macro[MACRO_STOP    ] =     "@STOP";
-
-  macro_old[MACRO_FILENAME] = "$@";
-  macro_old[MACRO_SHORT   ] = "$*";
-  macro_old[MACRO_ARGS    ] = "$+";
-
-  global[MACRO_FILENAME] = filename;
-  global[MACRO_SHORT   ] = shorten(filename);
-  global[MACRO_ARGS    ] = all_args((size_t) argc, argv);
-  global[MACRO_STOP    ] = "";
-
-#if NEW_MACROS
-
-  for (i = 0; i < ARRLEN(macro); ++i) {
-    buf = expand(buf, macro[i], global[i]);
-  }
-
-#endif
-
-#if OLD_MACROS
-
-  for (i = 0; i < ARRLEN(macro_old); ++i) {
-    buf = expand(buf, macro_old[i], global[i]);
-  }
-
-#endif
-
-  free(global[MACRO_ARGS]);
-
-  return buf;
-}
-
-static void
-remove_expand(char * buf, char * argv0, int rm, char * start, char * stop) {
-  size_t i, f, end = strlen(buf);
-  size_t startlen = strlen(start), stoplen = strlen(stop);
-  char x[1] = {'\0'};
-
-
-  for (i = 0; i < end; ++i) {
-    if (!strncmp(buf + i, start, startlen)) {
-      if (buf + i > buf && buf[i - 1] == '\\') {
-        continue;
-      }
-
-      for (f = i; f < end; ++f) {
-        if (!strncmp(buf + f, stop, stoplen)) {
-          if (buf + f > buf && buf[f - 1] == '\\') {
-            continue;
-          }
-
-          insert(buf + f, "", end - f, 0, 1);
-          i += startlen;
-
-          if (rm & BAKE_EXPUNGE) {
-            swap(buf + i + (f - i), x);
-#if !ENABLE_EXPUNGE_REMOVE
-            color_printf("%s: %sremoving '%s'\n",
-                         argv0, rm & BAKE_NORUN ? "not " : "", buf + i);
-
-            if (!(rm & BAKE_NORUN)) {
-              remove(buf + i);
-            }
-
-#else
-            color_printf("%s: not removing '%s'\n", argv0, buf + i);
-#endif
-            swap(buf + i + (f - i), x);
-          }
-
-          goto next;
-        }
-      }
-
-      goto stop;
-    }
-
-  next:;
-  }
-
-stop:
-  expand(buf, start, "");
-}
-
-/*** strip, run ***/
-
-/* Strips all prefixing and leading whitespace.
- * Except if the last character beforehand is a newline. */
 static size_t
-strip(char * buf) {
-  size_t i = strlen(buf);
-
-  if (!i) {
-    return 0;
+lines (char * buffer, size_t off) {
+  size_t line = 1;
+  char * end = buffer + off;
+  while (buffer < end) {
+    if (*buffer == '\n') { ++line; }
+    ++buffer;
   }
-
-  while (i && isspace(buf[i - 1])) {
-    --i;
-  }
-
-  buf[i] = '\0';
-
-  for (i = 0; isspace(buf[i]); ++i);
-
-  if (i && buf[i - 1] == '\n') {
-    --i;
-  }
-
-  return i;
+  return line;
 }
 
-static int
-run(char * buf, char * argv0) {
+static char *
+expand (char * buffer, size_t length, char ** pairs, size_t count) {
+  static char expanded [BUFFER_SIZE] = {0};
+  size_t old, new, i, f, off = 0;
+  /* I need to test the bounds checking here, it'll crash normally if this provision doesn't do anything, though. */
+  length &= (1 << 12) - 1;
+  for (f = 0; f < length; ++f) {
+    for (i = 0; i < count; i += 2) {
+      old = strlen (pairs [i]);
+      new = strlen (pairs [i + 1]);
+      if (memcmp (buffer + f - off, pairs [i], old) == 0) {
+        if (f && buffer [f - off - 1] == '\\')
+        { --f; --off; break; }
+        memcpy (expanded + f, pairs [i + 1], new);
+        f += new;
+        length += new - old;
+        off += new - old;
+        break;
+    }}
+    expanded [f] = buffer [f - off];
+  }
+  expanded [f] = '\0';
+  return expanded;
+}
+
+static char *
+getmap (char * filename, size_t * length) {
+  char * buffer = NULL;
+  int fd = open (filename, O_RDONLY);
+  if (fd != -1) {
+    struct stat s;
+    if (!fstat (fd, &s)
+        &&   s.st_mode & S_IFREG
+        &&   s.st_size) {
+      *length = (size_t) s.st_size;
+      buffer = (char *) mmap (NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
+    }
+    close (fd);
+  }
+  return buffer;
+}
+
+# define color_printf(...) color_fprintf (stdout, __VA_ARGS__)
+/* not perfect, too simple, doesn't work with a var, only a literal. */
+# define color_fputs(fp, msg) color_fprintf (fp, msg "\n")
+# define color_puts(msg) color_fputs (stdout, msg)
+
+static int color = ENABLE_COLOR;
+
+static void
+color_fprintf (FILE * fp, char * format, ...) {
+  va_list ap;
+  char * buf;
+
+  va_start (ap, format);
+
+  if (color) {
+    vfprintf (fp, format, ap);
+    va_end (ap);
+    return;
+  }
+  vasprintf (&buf, format, ap);
+
+  if (buf) {
+    char * expanded, * colors [] = {
+      YELLOW, "",
+      GREEN,  "",
+      RED,    "",
+      BOLD,   "",
+      RESET,  ""
+    };
+    size_t count = ARRLEN (colors);
+    expanded = expand (buf, strlen (buf), colors, count - 2);
+    expanded = expand (expanded, strlen (buf), colors + count - 2, 2);
+    fwrite (expanded, strlen (expanded), 1, fp);
+  }
+
+  free (buf);
+  va_end (ap);
+}
+/* -- */
+
+int main (int argc, char ** argv) {
+  void help (void);
+  int off, run = 1, list = 0, select_input, select = 1;
+  size_t length, begin = 0, end = 0;
   pid_t pid;
-  color_puts(BOLD GREEN "output" RESET ":\n");
-
-  if ((pid = fork()) == 0) {
-    execl("/bin/sh", "sh", "-c", buf, NULL);
-    return 0; /* execl overwrites the process anyways */
-  } else if (pid == -1) {
-    color_fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n",
-                  argv0, "Fork Error", strerror(errno));
-    return BAKE_ERROR;
-  } else {
-    int status;
-
-    if (waitpid(pid, &status, 0) < 0) {
-      color_fprintf(stderr, BOLD RED "%s" RESET ": %s, %s\n",
-                    argv0, "Wait PID Error", strerror(errno));
-      return BAKE_ERROR;
-    }
-
-    if (!WIFEXITED(status)) {
-      return BAKE_ERROR;
-    }
-
-    return WEXITSTATUS(status);
-  }
-}
-
-/*** main ***/
-
-int
-main(int argc, char ** argv) {
-  int ret = BAKE_RUN;
-  char * buf = NULL,
-         * filename,
-         * argv0;
-
-  argv0 = argv[0];
-
-  if (argc < 2) {
-    goto help;
-  }
-
-  while (++argv, --argc && argv[0][0] == '-') {
-    ++argv[0];
-
-    if (argv[0][1] == '-') {
-      ++argv[0];
-
-      if (!strcmp(argv[0],    "help")) {
-        goto help;
-      } else if (!strcmp(argv[0], "version")) {
-        goto version;
-      } else if (!strcmp(argv[0], "expunge")) {
-        ret |= BAKE_EXPUNGE;
-      } else if (!strcmp(argv[0], "dry-run")) {
-        ret |= BAKE_NORUN;
-      } else if (!strcmp(argv[0],   "color")) {
-#if ENABLE_COLOR
-        color = 0;
-#endif
-      } else                                  {
-        goto help;
-      }
-    } else do {
-        switch (argv[0][0]) {
-        case 'h':
-          goto help;
-
-        case 'v':
-          goto version;
-
-        case 'x':
-          ret |= BAKE_EXPUNGE;
-          break;
-
-        case 'n':
-          ret |= BAKE_NORUN;
-          break;
-
-#if ENABLE_COLOR
-
-        case 'c':
-          color = 0;
-          break;
-#endif
-
-        case 0  :
-          goto next;
-
-        default :
-          color_puts("UNKNOWN");
-          goto help;
+  char line [10], expanded [BUFFER_SIZE], * buffer, * expandedp, * args, * shortened, * filename = NULL;
+  /* opts */
+  for (off = 1; off < argc; ++off) {
+    if (argv [off][0] != '-') { filename = argv [off]; ++off; break; }
+    if (argv [off][1] != '-') {
+      while (*(++argv [off]))
+      switch (argv [off][0]) {
+      case_select:          case 's':
+        select = atoi (argv [off] + 1);
+        if (!select) {
+          ++off;
+          if (off >= argc) { help (); }
+          select = atoi (argv [off]);
         }
-      } while (++(argv[0]));
-
+        if (select) { goto next; }
+      case_help:   default: case 'h': help ();
+      case_list:            case 'l': list = 1;
+      case_dryrun:          case 'n': run = 0; break;
+      case_color:           case 'c': color = 0; break;
+      }
+      continue;
+    }
+    argv[off] += 2;
+         if (strcmp(argv[off],  "select") == 0) { goto case_select; }
+    else if (strcmp(argv[off],    "list") == 0) { goto case_list; }
+    else if (strcmp(argv[off], "dry-run") == 0) { goto case_dryrun; }
+    else if (strcmp(argv[off],   "color") == 0) { goto case_color; }
+    else if (strcmp(argv[off],    "help") == 0) { goto case_help; }
   next:;
   }
+  if (argc == 1 || !filename) { help (); }
+  select_input = select;
+  /* roots to directory of filename and mutates filename with the change */
+  root (&filename);
 
-  if (!argc)
-  {
-    color_fprintf(stderr, BOLD RED "%s" RESET
-                  ": No filename provided\n",
-                  argv0);
-    return BAKE_ERROR;
+  buffer = getmap (filename, &length);
+  if (!buffer) {
+    color_fprintf (stderr, RED "%s" RESET ": Could not access '" BOLD "%s" RESET "'\n", argv [0], filename);
+    return 1;
+  }
+  for (begin = 0; (list || select) && begin < length - strlen (START); ++begin) {
+    if (memcmp (buffer + begin, START, strlen (START)) == 0) {
+      end = begin;
+      size_t stop = begin;
+      while (end < length && buffer[end] != '\n') { ++end; }
+      if (end && buffer [end - 1] == '\\') { ++end; }
+      while (stop < length - strlen (STOP)) {
+        if (memcmp(buffer + stop, STOP, strlen (STOP)) == 0) {
+          if (stop && buffer[stop - 1] != '\\') {
+            break;
+          }
+        }
+        ++stop;
+      }
+      if (list) {
+        color_printf (GREEN "%d" RESET ": " BOLD, select++);
+        fwrite (buffer + begin, 1, end - begin, stdout);
+        color_puts (RESET);
+      } else { --select; }
+  }}
+  begin += strlen (START) - 1;
+
+  if (list) { return 0; }
+  if (end < begin) {
+    color_fprintf (stderr, RED "%s" RESET ": " BOLD "%d" RESET " is out of range\n", argv [0], select_input);
+    return 1;
   }
 
-  filename = argv[0];
-  ++argv, --argc;
+  /* expansion */
 
-  if (strlen(filename) > FILENAME_LIMIT) {
-    color_fprintf(stderr, BOLD RED "%s" RESET
-                  ": Filename too long (exceeds %d)\n",
-                  argv0,
-                  FILENAME_LIMIT);
-    return BAKE_ERROR;
+  args = all_args (argc - off, argv + off);
+  shortened = shorten (filename);
+  char * pair [] = {
+      "@FILENAME",  filename,
+      "@FILE",      filename,
+      "$@",         filename,
+      "@SHORT",     shortened,
+      "$*",         shortened,
+      "@ARGS",      args,
+      "$+",         args,
+      "@LINE",      line
+    };
+  size_t count = ARRLEN (pair);
+  snprintf (line, 16, "%lu", lines (buffer, begin));
+  expandedp = expand (buffer + begin, end - begin, pair, count);
+  memcpy(expanded, expandedp, BUFFER_SIZE);
+  munmap (buffer, length);
+
+  /* print and execute */
+  color_printf (GREEN "%s" RESET ": " BOLD "%s" RESET, argv [0], expanded);
+  if (!run) { return 0; }
+
+  color_fprintf (stderr, GREEN "output" RESET ":\n");
+  if ((pid = fork ()) == 0) {
+    execl ("/bin/sh", "sh", "-c", expanded, NULL);
+    return 0; /* execl overwrites the process anyways */
   }
 
-  root(&filename);
-  buf = file_get_region(filename, START, STOP);
-
-  if (!buf) {
-    char * error[2];
-    error[0] = "File Unrecognized";
-    error[1] = "Found start without suffix spacing";
-
-    color_fprintf(stderr, BOLD RED "%s" RESET ": '" BOLD "%s" RESET "' %s.\n",
-                  argv0, filename, errno ? strerror(errno) : error[bake_errno]);
-    return BAKE_ERROR;
+  if (pid == -1) {
+    color_fprintf (stderr, GREEN "%s" RESET ": %s, %s\n",
+            argv [0], "Fork Error", strerror (errno));
+    return 1;
   }
 
-  buf = bake_expand(buf, filename, argc, argv);
+  /* reuse of run as status return */
+  if (waitpid (pid, &run, 0) < 0) {
+    color_fprintf (stderr, GREEN "%s" RESET ": " RED "%s" RESET ", %s\n",
+            argv [0], "Wait PID Error", strerror (errno));
+    return 1;
+  }
+  if (!WIFEXITED (run)) {
+    return 1;
+  }
+  return WEXITSTATUS (run);
+}
 
-  color_printf(BOLD GREEN "%s" RESET ": %s\n", argv0, buf + strip(buf));
-
-  remove_expand(buf, argv0, ret, EXPUNGE_START, EXPUNGE_STOP);
-
-  if (!ret) {
-    ret = run(buf, argv0);
-
-    if (ret) {
-      color_printf(BOLD RED "result" RESET ": " BOLD "%d\n" RESET, ret);
-    }
-  } else { ret = 0; }
-
-  free(buf);
-  return ret;
-help:
-  color_fprintf(stderr, YELLOW "%s" RESET ": %s\n", argv0, HELP DESC);
-  return BAKE_ERROR;
-version:
-  color_fprintf(stderr,
-                YELLOW "%s" RESET ": v" VERSION "\n"
-                "Copyright " COPYRIGHT "\n" LICENSE "\n",
-                argv0);
-  return BAKE_ERROR;
+void help (void) {
+  char * help =
+    BOLD "bake [-chln] [-s <n>] <FILENAME> [ARGS...]; version 20240804\n\n" RESET
+    GREEN "Bake" RESET " is a simple tool meant to execute embedded shell commands within\n"
+    "any file.  It executes with /bin/sh the command after a \"" BOLD "@BAKE" RESET " \" to\n"
+    "the end of the line (a UNIX newline: '\\n').\n\n"
+    "It expands some macros,\n"
+    YELLOW "\t@NAME   " RESET "- filename\n"
+    YELLOW "\t@SHORT  " RESET "- shortened filename\n"
+    YELLOW "\t@ARGS   " RESET "- other arguments to the program\n"
+    YELLOW "\t@LINE   " RESET "- line number at the selected @BAKE\n\n"
+    "All macros can be exempted by prefixing them with a backslash,\n"
+    "which'll be subtracted in the expansion. multi-line commands may be\n"
+    "done by a leading backslash, which are NOT subtracted.\n\n"
+    "It has five options, this message (-h, --help); prevents the execution\n"
+    "of the shell command (-n, --dry-run); disable color (-c, --color); list\n"
+    "(-l, --list) and select (-s<n>, --select <n>) which respectively lists\n"
+    "all @BAKE commands and select & run the Nth command.\n\n"
+    "It roots the shell execution in the directory of the given file.\n\n"
+    "Licensed under the public domain.\n";
+  color_printf ("%s", help);
+  exit (1);
 }

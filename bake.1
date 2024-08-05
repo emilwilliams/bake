@@ -1,33 +1,35 @@
-.TH BAKE "1" "April 2024" "bake 20240413" "User Commands"
+.TH BAKE "1" "August 2024" "bake 20240804" "User Commands"
 .SH NAME
 .B bake
 \- file embeddable scripts
 .SH SYNOPSIS
 .B bake
-[option] target\-file [\fBarguments\fP ...]
+[\-chln] [\-s <n>] <FILENAME> [ARGS...]
 .SH DESCRIPTION
-Use the format \fB@BAKE\fP cmd ... within the target\-file, this will execute the
-rest of line, or until the first \fB@STOP\fR marker.
+
+bake is a simple tool meant to execute embedded shell commands within
+any file.  It executes with /bin/sh the command after a "\fB@BAKE\fP " to
+the end of the line (a UNIX newline: '\fB\\n\fP').
 
 This format may be embedded within \fBbinary files\fP, or any file where no unwanted preceding
-instance of
-.B @BAKE
-appears.
+instance of \fB@BAKE\fP appears.
 
-\fBShake\fP does not support some features of \fBBake\fP, such as \fB@STOP\fP or \fBbinary files\fP,
-please avoid its use.
+It roots the shell execution in the directory of the given file.
 
-Options must always be put first, and may be merged together.
+Options must always be put first, and short options may be merged together.
 
 .HP
-\-v \-\-version, \-h \-\-help, \fB\-n \-\-dry\-run\fP, \fB\-x \-\-expunge\fP,
-\fB\-c \-\-color\fP
+ \fB\-c \-\-color\fP, \-h \-\-help, \fB\-n \-\-dry\-run\fP, \fB\-l \-\-list\fP, \fB\-s \-\-select\fP <\fBn\fP>
 .PP
-Expansions
+Macros
 
-These symbols will expand to their counterpart before execution.
+All macros can be exempted by prefixing them with a backslash,
+which'll be subtracted in the expansion. multi-line commands may be
+done by a leading backslash, which are NOT subtracted.
+
+These macros will expand to their counterpart before execution.
 .TP
-.B @FILENAME, $@
+.B @FILENAME, @NAME, $@
 returns target\-file (abc.x.txt)
 .TP
 .B @SHORT, $*
@@ -36,35 +38,21 @@ returns target\-file without suffix (abc.x.txt \-> abc.x)
 .B @ARGS, $+
 returns
 .B arguments
+.TP
+.B @LINE
+returns the line number
 
 .PP
 Additional Features And Notes
 
-Shell execution may be disabled with the
-.B -n or --dry-run
-option.
+Shell execution may be disabled with the \fB-n\fP or \fB--dry-run\fP option.
 
-\fB@{\fPEXPUNGE_THIS_FILE\fB}\fP is a inline block to delete files or
-directories, non-recursive, only one file per block, removed from left to right.
-Has no influence on the normal command execution. The deletion only occurs if
-you use the
-.B -x or --expunge
-option.
-
-Colors may be disabled with the
-.B -c or --color
-option.
-
-\\SPECIAL_NAME will result in SPECIAL_NAME in the executed shell
-command. Backslashes are applicable to all symbols used by Bake, they are
-ignored otherwise.
+Colors may be disabled with the \fB-c\fP or \fB--color\fP option.
 
 .SH EXAMPLE
 .\" SRC BEGIN (example.c)
 .EX
-// example.c
-// @BAKE cc -o @{@SHORT} @FILENAME @ARGS
-// or, simply, @BAKE cc -o @{$*} $@ $+
+// example.c @BAKE cc -o @SHORT @NAME @ARGS
 #include <stdio.h>
 int main (void) {
     puts("Hello.");
@@ -73,4 +61,4 @@ int main (void) {
 .EE
 .SH COPYRIGHT
 .PP
-Licensed under the GNU Public License version 3 only, see <https://www.gnu.org/licenses/gpl\-3.0\-standalone.html>.
+Licensed under the public domain.
