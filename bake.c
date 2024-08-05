@@ -1,5 +1,4 @@
-// @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o @SHORT @FILENAME @ARGS
-
+// @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o @SHORT @FILENAME @ARGS @STOP
 #define _GNU_SOURCE
 
 #include <ctype.h>
@@ -242,20 +241,20 @@ int main (int argc, char ** argv) {
   }
   for (begin = 0; (list || select) && begin < length - strlen (START); ++begin) {
     if (memcmp (buffer + begin, START, strlen (START)) == 0) {
-      end = begin;
       size_t stop = begin;
-      while (end < length && buffer[end] != '\n') { ++end; }
-      if (end && buffer [end - 1] == '\\') { ++end; }
-      while (stop < length - strlen (STOP)) {
-        if (memcmp(buffer + stop, STOP, strlen (STOP)) == 0) {
-          if (stop && buffer[stop - 1] != '\\') {
-            break;
-          }
+      end = begin;
+      again: while (end < length && buffer[end] != '\n') { ++end; }
+      if (buffer[end - 1] == '\\') { ++end; goto again; }
+      while (stop < length - strlen(STOP)) {
+        if (memcmp(buffer + stop, STOP, strlen(STOP))  == 0) {
+          if (stop && buffer[stop - 1] == '\\') { ++stop; continue; }
+          end = stop;
+          break;
         }
         ++stop;
       }
       if (list) {
-        color_printf (GREEN "%d" RESET ": " BOLD, select++);
+        color_printf (GREEN "%d,%d" RESET ": " BOLD, select++, lines (buffer, begin));
         fwrite (buffer + begin, 1, end - begin, stdout);
         color_puts (RESET);
       } else { --select; }
@@ -290,8 +289,9 @@ int main (int argc, char ** argv) {
 
   /* print and execute */
   color_printf (GREEN "%s" RESET ": " BOLD "%s" RESET, argv [0], expanded);
+  if (expanded[strlen(expanded)] != '\n') { puts(""); }
   if (!run) { return 0; }
-
+  fflush(stdout);
   color_fprintf (stderr, GREEN "output" RESET ":\n");
   if ((pid = fork ()) == 0) {
     execl ("/bin/sh", "sh", "-c", expanded, NULL);
@@ -326,14 +326,14 @@ void help (void) {
     YELLOW "\t@NAME   " RESET "- filename\n"
     YELLOW "\t@SHORT  " RESET "- shortened filename\n"
     YELLOW "\t@ARGS   " RESET "- other arguments to the program\n"
-    YELLOW "\t@LINE   " RESET "- line number at the selected @BAKE\n\n"
+    YELLOW "\t@LINE   " RESET "- line number at the selected " BOLD "@BAKE" RESET "\n\n"
     "All macros can be exempted by prefixing them with a backslash,\n"
     "which'll be subtracted in the expansion. multi-line commands may be\n"
     "done by a leading backslash, which are NOT subtracted.\n\n"
     "It has five options, this message (-h, --help); prevents the execution\n"
     "of the shell command (-n, --dry-run); disable color (-c, --color); list\n"
     "(-l, --list) and select (-s<n>, --select <n>) which respectively lists\n"
-    "all @BAKE commands and select & run the Nth command.\n\n"
+    "all " BOLD "@BAKE" RESET " commands and select & run the Nth command.\n\n"
     "It roots the shell execution in the directory of the given file.\n\n"
     "Licensed under the public domain.\n";
   color_printf ("%s", help);
