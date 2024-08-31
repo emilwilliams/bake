@@ -64,3 +64,47 @@ needs to be tested a bit more to confirm full compatibility.
 
 changes - Rewrite of the code; Removal of -x --expunge; Addition of
 @LINE & @NAME, list, & select.
+
+24/08/22 - Expunge
+
+I decided to add expunge back in, after I went back to a project using
+it, because I didn't feel like writing a regexp that would prune it.
+
+It works the same. However it's less tested. Backslashes are reliable.
+It doesn't eat characters around itself and returns a reliable string.
+It does, however, cover the same space as the origin string.
+
+Such brutal expressions as '@{\} @{\}@SHORT\}}' -> '} @{}@SHORT}'
+successfully, with expunge_me correctly containing only that.
+
+It's the same, as before. Sadly I didn't generalize the search and
+replace code, that's what sed is for, and I didn't want to implement
+finite automata for this simple update, so its implementation is primitive.
+
+The implementation as a whole was meant for simplicity,
+extensibility.  I, before getting it working, got a gorilla version
+that removed contextless @{ } successfully, and a version that
+contextually removed each @{ and it's respective } via expand.
+
+Interesting note: Old Bake's executable is larger than new Bakes.
+So, not only do we have constant memory, but I've saved space.
+
+Note that the only real limitation is that, that we can't make a @BAKE
+command the size of THIS file, or a a @BAKE command inlining all of
+Bake. If you need such a feature, use the old version of Bake, or
+simply extend this version. I may do such things, because the code
+here is better.
+
+This project really was never meant to be optimized, simply memory
+confined. if it goes over, it'll SEGV and imply to the diligent user
+to shorten his commands. If you just need enough in a simple fashion,
+boosting:
+#define BUFFER_SIZE (1 << 12) /* 4096 bytes; 4 KiB */
+                 TO (1 << 20) /* 1048576 bytes; 1 MiB */
+
+4 KiB is enough in 99% cases and covers 100% of usage that I am aware
+of apart from the case of testing this exact faculty. If it does limit
+you, you can use an external script or <Using Make!/Old Bake>
+
+I'm not planning to update Shake with @STOP, @LINE, (-x, --expunge),
+or any new bells and wistles.

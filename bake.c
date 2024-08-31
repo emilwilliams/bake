@@ -1,4 +1,7 @@
-// @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o @SHORT @FILENAME @ARGS @STOP
+/* @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o @SHORT @FILENAME @ARGS @STOP */
+/* @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o '@{\} @{\}@SHORT\}}' @FILENAME @ARGS @STOP */
+/* @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o '@{\}}' @FILENAME @ARGS @STOP */
+/* @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o '@{a}' @FILENAME @ARGS @STOP */
 #define _GNU_SOURCE
 
 #include <ctype.h>
@@ -16,8 +19,8 @@
 
 #define BUFFER_SIZE (1 << 12)
 
-#define START ("@" "BAKE" " ")
-#define STOP  ("@" "STOP")
+#define START "@" "BAKE" " "
+#define STOP  "@" "STOP"
 
 #define AUTONOMOUS_COMPILE 0
 
@@ -45,10 +48,8 @@
 
 #define ARRLEN(x) (sizeof (x) / sizeof (x [0]))
 
-#if AUTONOMOUS_COMPILE
-__attribute__((__section__(".text"))) static char autonomous_compile [] =
-  "@BAKE" " cc -w @FILENAME.c -o @FILENAME @ARGS\n";
-#endif
+__attribute__((__section__(".text"))) static volatile char autonomous_compile [] =
+  "@BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o @SHORT @FILENAME.c @ARGS @STOP";
 
 static void
 swap (char * a, char * b) {
@@ -113,8 +114,7 @@ lines (char * buffer, size_t off) {
 }
 
 static char *
-expand (char * buffer, size_t length, char ** pairs, size_t count) {
-  static char expanded [BUFFER_SIZE] = {0};
+expand_buffer(char * expanded, char * buffer, size_t length, char ** pairs, size_t count) {
   size_t old, new, i, f, off = 0;
   /* I need to test the bounds checking here, it'll crash normally if this provision doesn't do anything, though. */
   length &= (1 << 12) - 1;
@@ -135,6 +135,36 @@ expand (char * buffer, size_t length, char ** pairs, size_t count) {
   }
   expanded [f] = '\0';
   return expanded;
+}
+
+static char *
+expand (char * buffer, size_t length, char ** pairs, size_t count) {
+  static char expanded [BUFFER_SIZE] = {0};
+  return expand_buffer (expanded, buffer, length, pairs, count);
+}
+
+static char *
+expunge (char * to, char * from, size_t length, char ** pair, size_t count) {
+  size_t i, f;
+  (void)count;                  /* count isn't actually used... */
+  static char expunge_me [FILENAME_MAX] = {0};
+  for (i = 0; i < length; ++i) {
+    if (memcmp(from + i, pair[0], strlen(pair[0])) == 0) {
+      if (from[i - 1] == '\\') { --i; memmove(from + i, from + i + 1, length - i); i+=1+strlen(pair[0]); --length; continue; }
+      for (f = i + strlen(pair[0]); f < length; ++f) {
+        if (memcmp(from + f, pair[1], strlen(pair[1])) == 0) {
+          if (from[f - 1] == '\\') { --f; memmove(from + f, from + f + 1, length - f); --length; continue; }
+          memmove(to + i, from + i + strlen(pair[0]), length - i - strlen(pair[0]));
+          memmove(to + f - strlen(pair[1]), from + f - 1, length - f);
+          /* memcpy(to + f - 2, "        ", strlen(pair[1])); */
+          memcpy(expunge_me, to + i, f - i - 1 - strlen(pair[1]));
+          goto end;
+        }
+      }
+    }
+  }
+end:
+  return expunge_me;
 }
 
 static char *
@@ -192,21 +222,24 @@ color_fprintf (FILE * fp, char * format, ...) {
   free (buf);
   va_end (ap);
 }
+
 /* -- */
 
 int main (int argc, char ** argv) {
   void help (void);
-  int off, run = 1, list = 0, select_input, select = 1;
+  int off, run = 1, list = 0, ex = 0, select_input, select = 1;
   size_t length, begin = 0, end = 0;
   pid_t pid;
-  char line [10], expanded [BUFFER_SIZE], * buffer, * expandedp, * args, * shortened, * filename = NULL;
+  char   line [10], expanded [BUFFER_SIZE], * buffer, * expandedp, * args, * shortened, * filename = NULL,
+       * paren [] = { "@{", "}" }, * expunge_me = NULL, * bake_begin = START, * bake_end = STOP;
+  
   /* opts */
   for (off = 1; off < argc; ++off) {
     if (argv [off][0] != '-') { filename = argv [off]; ++off; break; }
     if (argv [off][1] != '-') {
       while (*(++argv [off]))
       switch (argv [off][0]) {
-      case_select:          case 's':
+      select:  case 's':
         select = atoi (argv [off] + 1);
         if (!select) {
           ++off;
@@ -214,19 +247,23 @@ int main (int argc, char ** argv) {
           select = atoi (argv [off]);
         }
         if (select) { goto next; }
-      case_help:   default: case 'h': help ();
-      case_list:            case 'l': list = 1;
-      case_dryrun:          case 'n': run = 0; break;
-      case_color:           case 'c': color = 0; break;
+      default: case 'h': help ();
+               case 'l': list = 1;
+               case 'n': run = 0;   break;
+               case 'c': color = 0; break;
+               case 'x': ex = 1; break;
+               case 'q': fclose(stderr); fclose(stdout); break;
       }
       continue;
     }
     argv[off] += 2;
-         if (strcmp(argv[off],  "select") == 0) { goto case_select; }
-    else if (strcmp(argv[off],    "list") == 0) { goto case_list; }
-    else if (strcmp(argv[off], "dry-run") == 0) { goto case_dryrun; }
-    else if (strcmp(argv[off],   "color") == 0) { goto case_color; }
-    else if (strcmp(argv[off],    "help") == 0) { goto case_help; }
+         if (strcmp(argv[off],  "select") == 0) { goto select; }
+    else if (strcmp(argv[off],    "list") == 0) { list = 1; run = 0; }
+    else if (strcmp(argv[off], "dry-run") == 0) { run = 0; }
+    else if (strcmp(argv[off],   "color") == 0) { color = 0; }
+    else if (strcmp(argv[off], "expunge") == 0) { ex = 1; }
+    else if (strcmp(argv[off],   "quiet") == 0) { fclose(stderr); fclose(stdout); }
+    else if (strcmp(argv[off],    "help") == 0) { help(); }
   next:;
   }
   if (argc == 1 || !filename) { help (); }
@@ -239,14 +276,14 @@ int main (int argc, char ** argv) {
     color_fprintf (stderr, RED "%s" RESET ": Could not access '" BOLD "%s" RESET "'\n", argv [0], filename);
     return 1;
   }
-  for (begin = 0; (list || select) && begin < length - strlen (START); ++begin) {
-    if (memcmp (buffer + begin, START, strlen (START)) == 0) {
+  for (begin = 0; (list || select) && begin < length - strlen (bake_begin); ++begin) {
+    if (memcmp (buffer + begin, bake_begin, strlen (bake_begin)) == 0) {
       size_t stop = begin;
       end = begin;
       again: while (end < length && buffer[end] != '\n') { ++end; }
       if (buffer[end - 1] == '\\') { ++end; goto again; }
-      while (stop < length - strlen(STOP)) {
-        if (memcmp(buffer + stop, STOP, strlen(STOP))  == 0) {
+      while (stop < length - strlen(bake_end)) {
+        if (memcmp(buffer + stop, bake_end, strlen(bake_end))  == 0) {
           if (stop && buffer[stop - 1] == '\\') { ++stop; continue; }
           end = stop;
           break;
@@ -259,7 +296,7 @@ int main (int argc, char ** argv) {
         color_puts (RESET);
       } else { --select; }
   }}
-  begin += strlen (START) - 1;
+  begin += strlen (bake_begin) - 1;
 
   if (list) { return 0; }
   if (end < begin) {
@@ -280,19 +317,33 @@ int main (int argc, char ** argv) {
       "@ARGS",      args,
       "$+",         args,
       "@LINE",      line
-    };
-  size_t count = ARRLEN (pair);
+  };
   snprintf (line, 16, "%lu", lines (buffer, begin));
-  expandedp = expand (buffer + begin, end - begin, pair, count);
+  expandedp = expand (buffer + begin, end - begin, pair, ARRLEN (pair));
   memcpy(expanded, expandedp, BUFFER_SIZE);
+  expunge_me = expunge (expanded, expanded, strlen(expanded), paren, ARRLEN (paren));
   munmap (buffer, length);
 
   /* print and execute */
-  color_printf (GREEN "%s" RESET ": " BOLD "%s" RESET, argv [0], expanded);
+  color_fprintf (stderr, GREEN "%s" RESET ": " BOLD "%s" RESET, argv [0], expanded);
   if (expanded[strlen(expanded)] != '\n') { puts(""); }
+
+  if (ex) {
+    color_fprintf (stderr, GREEN "%s" RESET ": removing '%s'\n", argv [0], expunge_me);
+    char * jin = ".c";
+    if (expunge_me
+    &&  run
+    &&  /* just in case */
+        memcmp(expunge_me + strlen(expunge_me) - strlen(jin), jin, strlen(jin)) != 0)
+    { remove(expunge_me); }
+    return 0;
+  }
+
   if (!run) { return 0; }
-  fflush(stdout);
+
   color_fprintf (stderr, GREEN "output" RESET ":\n");
+  fflush(stdout);
+
   if ((pid = fork ()) == 0) {
     execl ("/bin/sh", "sh", "-c", expanded, NULL);
     return 0; /* execl overwrites the process anyways */
@@ -334,7 +385,8 @@ void help (void) {
     "of the shell command (-n, --dry-run); disable color (-c, --color); list\n"
     "(-l, --list) and select (-s<n>, --select <n>) which respectively lists\n"
     "all " BOLD "@BAKE" RESET " commands and select & run the Nth command.\n\n"
-    "It roots the shell execution in the directory of the given file.\n\n"
+    "It roots the shell execution in the directory of the given file.\n"
+    "Expunge with @{filename...}, using (-x, --expunge), \\@{} or @{\\}}.\n\n"
     "Licensed under the public domain.\n";
   color_printf ("%s", help);
   exit (1);

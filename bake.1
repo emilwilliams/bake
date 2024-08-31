@@ -4,7 +4,7 @@
 \- file embeddable scripts
 .SH SYNOPSIS
 .B bake
-[\-chln] [\-s <n>] <FILENAME> [ARGS...]
+[\-chlnx] [\-s <N>] <FILENAME> [ARGS...]
 .SH DESCRIPTION
 
 bake is a simple tool meant to execute embedded shell commands within
@@ -16,10 +16,15 @@ instance of \fB@BAKE\fP appears.
 
 It roots the shell execution in the directory of the given file.
 
-Options must always be put first, and short options may be merged together.
+Options must always be put first, and short options may be merged together, numerical options must be trailing.
 
 .HP
- \fB\-c \-\-color\fP, \-h \-\-help, \fB\-n \-\-dry\-run\fP, \fB\-l \-\-list\fP, \fB\-s \-\-select\fP <\fBn\fP>
+ \fB\-c \-\-color\fP, Disables color
+ \-h \-\-help, Help message
+\fB\-n \-\-dry\-run\fP, don't execute anything
+\fB\-l \-\-list\fP, lists available shell commands
+\fB\-s \-\-select\fP <\FBn\fP>, selects Nth shell command
+\fB\-x \-\-expunge\fP, Removes what's specified in the expunge block
 .PP
 Macros
 
@@ -47,7 +52,8 @@ Additional Features And Notes
 
 Shell execution may be disabled with the \fB-n\fP or \fB--dry-run\fP option.
 
-Colors may be disabled with the \fB-c\fP or \fB--color\fP option.
+Expunge removes exactly one file specified in the @{...} format. You may use
+backslashes to remove
 
 .SH EXAMPLE
 .\" SRC BEGIN (example.c)
