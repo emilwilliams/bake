@@ -1,7 +1,5 @@
 /* @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o @SHORT @FILENAME @ARGS @STOP */
-/* @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o '@{\} @{\}@SHORT\}}' @FILENAME @ARGS @STOP */
-/* @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o '@{\}}' @FILENAME @ARGS @STOP */
-/* @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o '@{a}' @FILENAME @ARGS @STOP */
+/* @BAKE cc -std=c99 -O2 -Wall -Wextra -Wpedantic -Wno-implicit-fallthrough -o @SHORT $+ @STOP */
 #define _GNU_SOURCE
 
 #include <ctype.h>
@@ -364,6 +362,7 @@ int main (int argc, char ** argv) {
   if (!WIFEXITED (run)) {
     return 1;
   }
+
   return WEXITSTATUS (run);
 }
 

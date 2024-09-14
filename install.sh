@@ -4,7 +4,7 @@
 TARGET=${TARGET:-/usr/local}
 INSTALL=${INSTALL:-bake shake}
 
-cd $(dirname "$(readlink -f "$0")")
+cd $(dirname "$(readlink -f "$0")")/src
 chmod +x shake
 
 ./shake bake.c -s $@ && \
