@@ -1,4 +1,4 @@
-/* cbake.l @BAKE flex @FILE && cc -std=c99 -D_GNU_SOURCE -o @SHORT lex.yy.c @ARGS -lfl @STOP */
+/* cbake.l @BAKE flex @FILE && cc -std=c99 -D_GNU_SOURCE -o @{@SHORT} lex.yy.c @ARGS -lfl @STOP */
 %{
 
 #include <ctype.h>
@@ -18,8 +18,9 @@ int gac;
 char ** gav;
 /* Options */
 int gselect = 1;
-/* Line accum */
-int  line = 1;
+/* accum */
+int line = 1, expunge_depth = 0;
+
 
 extern void root(char * filename);
 extern void args(int n);
@@ -41,6 +42,8 @@ NUM [[:digit:]]
  @ARGS:{NUM}+       { args(atoi(strrchr(yytext, ':')+1)); }
  @ARGS|$\+          { args(-1); }
  @STOP              { CHAR('\n'); if (gpipe) { fprintf(stderr, "output: "); } if (!gselect) { return 0; } BEGIN INITIAL; }
+ @\{ { ++expunge_depth; }
+ \}  {if (!expunge_depth--) { ECHO; } }
  {SPACE}+           { CHAR(' '); }
  .                  { ECHO; }
 }
