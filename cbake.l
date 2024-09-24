@@ -19,8 +19,7 @@ char ** gav;
 /* Options */
 int gselect = 1;
 /* accum */
-int line = 1, expunge_depth = 0;
-
+ int line = 1, expunge_depth = 0, first_nl,  nth = 0;
 
 extern void root(char * filename);
 extern void args(int n);
@@ -30,27 +29,52 @@ extern void shorten(char * filename, int n);
 SPACE [[:space:]]
 NUM [[:digit:]]
 
-%x FOUND
+%x FOUND STOP
 
-%option nodefault
+%option nodefault noinput noyywrap
 %%
+
+@BAKE{SPACE} {
+  first_nl = 1;
+  if (gselect < 0) {
+    printf("%s:%d s%d: ", filename, line, ++nth);
+    BEGIN FOUND;
+  }
+  if (!--gselect) { BEGIN FOUND; }
+}
+
+\n           { ++line; }
+.            { ; }
+
 <FOUND>{
- \\.                { /* skip next char */ ; }
  @FILENAME|@FILE|$@ { STRING(filename); }
  @SHORT:{NUM}+      { shorten(filename, atoi(strrchr(yytext, ':')+1)); }
  @SHORT|$\*         { shorten(filename, 1); }
  @ARGS:{NUM}+       { args(atoi(strrchr(yytext, ':')+1)); }
  @ARGS|$\+          { args(-1); }
+ @LINE              { FORMAT("%d", line); }
  @STOP              { CHAR('\n'); if (gpipe) { fprintf(stderr, "output: "); } if (!gselect) { return 0; } BEGIN INITIAL; }
- @\{ { ++expunge_depth; }
- \}  {if (!expunge_depth--) { ECHO; } }
+ \\\n               { CHAR('\n'); }
+ \\[@$]             { ; }
+ @\{                { ++expunge_depth; }
+ \}                 { if (!expunge_depth--) { ECHO; } }
+ \n                 { ++line; if (first_nl) { first_nl = 0; BEGIN STOP; } }
  {SPACE}+           { CHAR(' '); }
  .                  { ECHO; }
 }
 
-@BAKE{SPACE} { if (gselect < 0) { static int nth = 0; printf("%s:%d:s%d: ", filename, line, ++nth); BEGIN FOUND; } if (!--gselect) { BEGIN FOUND; } }
-\n|<FOUND>\n { ++line; }
-.            { ; }
+ /* FIXME +1. fucked up line count when multiline
+          -2. dropping everything after @BAKE...\n */
+<STOP>{
+ @BAKE{SPACE} {
+  first_nl = 1;
+  if (gselect < 0) { printf("\n%s:%d s%d: ", filename, line, ++nth); }
+  BEGIN FOUND;
+ }
+ @STOP { yyless(-1); BEGIN FOUND; }
+ \n    { yymore(); ++line; }
+ .|\\@ { yymore(); }
+}
 %%
 
 void root(char * filename) {
@@ -99,7 +123,7 @@ int main (int ac, char ** av) {
     for (i = 1; i < strlen(av[0]); ++i) {
       switch (av[0][i]) {
         opt_dry_run: case 'n': run = 0; break;
-        opt_select:  case 's': gselect = atoi(av[0]+2+(av[0][2] == '=')); break;
+        opt_select:  case 's': gselect = atoi(av[0]+2+(av[0][2] == '=')); i = strlen(av[0]); break;
         opt_list:    case 'l': run = 0; gselect = -1; break;
         opt_help:    case 'h': help(); return 0;
         opt_default: default: fprintf(stderr, "%s: Unknown option '%s'\n", av0, av[0]); return 1;
