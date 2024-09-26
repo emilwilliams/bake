@@ -3,13 +3,12 @@
 
 #include <ctype.h>
 
-#define backspace(fs) fputs("\x08", fs)
 #undef ECHO
-#define ECHO             do { fprintf(stdout, yytext); if (gpipe) { fprintf(gpipe, yytext); } } while (0)
-#define CHAR(c)          do { fputc(c, stdout); if (gpipe) { fputc(c, gpipe); } } while (0)
-#define STRING(s)        do { fputs(s, stdout); if (gpipe) { fputs(s, gpipe); } } while (0)
+#define ECHO             do { fprintf(stdout, yytext);      if (gpipe) { fprintf(gpipe, yytext); }      } while (0)
+#define CHAR(c)          do { fputc(c, stdout);             if (gpipe) { fputc(c, gpipe); }             } while (0)
+#define STRING(s)        do { fputs(s, stdout);             if (gpipe) { fputs(s, gpipe); }             } while (0)
 #define FORMAT(...)      do { fprintf(stdout, __VA_ARGS__); if (gpipe) { fprintf(gpipe, __VA_ARGS__); } } while (0)
-#define FWRITE(str, len) do { fwrite(str, 1, len, stdout);  if (gpipe) { fwrite(str, 1, len, gpipe); } } while (0)
+#define FWRITE(str, len) do { fwrite(str, 1, len, stdout);  if (gpipe) { fwrite(str, 1, len, gpipe); }  } while (0)
 
 FILE * gpipe;
 
@@ -26,45 +25,35 @@ extern void args(int n);
 extern void shorten(char * filename, int n);
 %}
 
-SPACE [[:space:]]
+SPACE [ \t\r\v\f]
 NUM [[:digit:]]
 
-%x FOUND STOP
+%x FOUND STOP PADDING
+
+MACROS (@BAKE|@FILENAME|@FILE|@SHORT|@ARGS|@LINE|@STOP|$@|$*|$+)
 
 %option nodefault noinput noyywrap
 %%
 
-@BAKE{SPACE} {
-  first_nl = 1;
-  if (gselect < 0) {
-    printf("%s:%d s%d: ", filename, line, ++nth);
-    BEGIN FOUND;
-  }
-  if (!--gselect) { BEGIN FOUND; }
-}
-
-\n           { ++line; }
-.            { ; }
-
 <FOUND>{
+ /* New behavior */
+ @BAKE              { if (!gselect) { return 0; } yyless(yyleng - strlen("@BAKE")); BEGIN INITIAL; }
  @FILENAME|@FILE|$@ { STRING(filename); }
  @SHORT:{NUM}+      { shorten(filename, atoi(strrchr(yytext, ':')+1)); }
  @SHORT|$\*         { shorten(filename, 1); }
  @ARGS:{NUM}+       { args(atoi(strrchr(yytext, ':')+1)); }
  @ARGS|$\+          { args(-1); }
  @LINE              { FORMAT("%d", line); }
- @STOP              { CHAR('\n'); if (gpipe) { fprintf(stderr, "output: "); } if (!gselect) { return 0; } BEGIN INITIAL; }
- \\\n               { CHAR('\n'); }
- \\[@$]             { ; }
+ @STOP              { CHAR('\n'); if (!gselect) { return 0; } BEGIN INITIAL; }
+ \\\n               { ++line; CHAR(' '); BEGIN PADDING; }
+ \\{MACROS}         { putchar(yytext[1]); }
  @\{                { ++expunge_depth; }
  \}                 { if (!expunge_depth--) { ECHO; } }
  \n                 { ++line; if (first_nl) { first_nl = 0; BEGIN STOP; } }
- {SPACE}+           { CHAR(' '); }
+ {SPACE}            { CHAR(' '); BEGIN PADDING; }
  .                  { ECHO; }
 }
 
- /* FIXME +1. fucked up line count when multiline
-          -2. dropping everything after @BAKE...\n */
 <STOP>{
  @BAKE{SPACE} {
   first_nl = 1;
@@ -75,6 +64,22 @@ NUM [[:digit:]]
  \n    { yymore(); ++line; }
  .|\\@ { yymore(); }
 }
+
+<PADDING>{
+  {SPACE} { ; }
+  .|\n    { yyless(0); BEGIN FOUND; }
+}
+
+@BAKE[[:space:]] {
+  first_nl = 1;
+  if (gselect <  0) { printf("%s:%d s%d: ", filename, line, ++nth); BEGIN FOUND; }
+  else if (gselect == 0) { BEGIN FOUND; }
+  else { --gselect; }
+}
+
+\n           { ++line; }
+.            { ; }
+
 %%
 
 void root(char * filename) {
@@ -134,6 +139,7 @@ int main (int ac, char ** av) {
 
  start:
   if (!ac) { fprintf(stderr, "%s: Missing filename\n", av0); return 1; }
+  if (gselect == 0) { fprintf(stderr, "%s: Out of range\n", av0); return 1; }
 
   /* filename and self placement */
   filename = av[0];
@@ -152,11 +158,17 @@ int main (int ac, char ** av) {
     gpipe = popen("/bin/sh -e", "w");
     if (!gpipe) { fprintf(stderr, "%s: <gpipe> %s\n", av0, strerror(errno)); return 1; }
   }
+
   if (gselect > 0) { fprintf(stderr, "%s: ", av0); fflush(stderr); }
   yylex();
-  if (gselect > 0) { fprintf(stderr, "%s: Out of range\n", av0); }
+  /* putchar('\n'); */
   fclose(fp);
+  if (gselect > 0) { fprintf(stderr, "%s: Out of range\n", av0); }
 
-  if (run) { run = pclose(gpipe); if (run) { printf("%s: Exit code %d\n", av0, run); } return run; }
-  return 0;
+  if (!run) { return 0; }
+  fprintf(stderr, "output: "); fflush(stderr);
+  run = pclose(gpipe);
+  /* repurposed run */
+  if (run) { printf("%s: Exit code %d\n", av0, run); }
+  return run;
 }
