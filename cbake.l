@@ -67,7 +67,7 @@ MACROS (@BAKE|@FILENAME|@FILE|@SHORT|@ARGS|@LINE|@STOP|$@|$*|$+)
 void root(char * filename) {
   char * path, * terminator;
   if (!(path = realpath(filename, NULL))) { return; }
-  if (terminator = strrchr(path, '/')) {
+  if ((terminator = strrchr(path, '/'))) {
     *terminator = '\0';
     chroot(path);
   }
