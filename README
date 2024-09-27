@@ -2,32 +2,34 @@
 
 A tool to run embedded scripts.
 
-Bootstrap with ./shake bake.c
+Bootstrap with ./shake bake.l
 then compile further with ./bake,
 install by running ./install.sh
 
 ---
 
-bake [-chln] [-s <n>] <FILENAME> [ARGS...]; version 20240804
+bake [-chln] [-s <n>] <FILENAME> [ARGS...]; version 20240927
 
 Bake is a simple tool meant to execute embedded shell commands within
 any file.  It executes with /bin/sh the command after a "@BAKE " to
 the end of the line (a UNIX newline: '\n').
 
 It expands some macros,
-	@NAME  - filename
-	@SHORT - shortened filename
+	@FILENAME @FILE @NAME - filename
+	@SHORT - filename without suffix (abc.x.txt \-> abc.x)
+	@SHORT:N - removes N suffixes, so (a.b.c 2 -> a)
 	@ARGS  - other arguments to the program
+	@ARGS:N - Provides the Nth argument, starting from 0
 	@LINE  - line number at the selected @BAKE
 
 All macros can be exempted by prefixing them with a backslash,
-which'll be subtracted in the expansion. multi-line commands may be
-done by a leading backslash, which are NOT subtracted.
+which'll be subtracted in the expansion. commands may be
+spanned over several lines with a leading backslash.
 
 It has five options, this message (-h, --help); prevents the execution
-of the shell command (-n, --dry-run); disable color (-c, --color); list
-(-l, --list) and select (-s<n>, --select <n>) which respectively lists
-all @BAKE commands and select & run the Nth command.
+of the shell command (-n, --dry-run); list (-l, --list) and select
+(-s<n>, --select <n>) which respectively lists all @BAKE commands and
+select & run the Nth command.
 
 It roots the shell execution in the directory of the given file.
 
@@ -49,62 +51,9 @@ replacement for Bake.
 
 Changelog
 
-Bake was created on 2023/09/13, and is complete as of 2024/03/02.
+Bake was created on 2023/09/13, and complete as of 2024/03/02.
 
-24/08/04 - Updated version!
+2024-09-27
 
-Bake is has been finished for a while but I thought the code could use
-a checkup with GNU complexity, and this gave me a reason to rewrite
-the important parts into a more sane manner. I had, at the same time,
-been requested to extend Bake with the @LINE and list/select.
-
-The changeset is large enough to possibly introduce bugs, and the last
-version of Bake is, in my opinion, highly reliable. This newer version
-needs to be tested a bit more to confirm full compatibility.
-
-changes - Rewrite of the code; Removal of -x --expunge; Addition of
-@LINE & @NAME, list, & select.
-
-24/08/22 - Expunge
-
-I decided to add expunge back in, after I went back to a project using
-it, because I didn't feel like writing a regexp that would prune it.
-
-It works the same. However it's less tested. Backslashes are reliable.
-It doesn't eat characters around itself and returns a reliable string.
-It does, however, cover the same space as the origin string.
-
-Such brutal expressions as '@{\} @{\}@SHORT\}}' -> '} @{}@SHORT}'
-successfully, with expunge_me correctly containing only that.
-
-It's the same, as before. Sadly I didn't generalize the search and
-replace code, that's what sed is for, and I didn't want to implement
-finite automata for this simple update, so its implementation is primitive.
-
-The implementation as a whole was meant for simplicity,
-extensibility.  I, before getting it working, got a gorilla version
-that removed contextless @{ } successfully, and a version that
-contextually removed each @{ and it's respective } via expand.
-
-Interesting note: Old Bake's executable is larger than new Bakes.
-So, not only do we have constant memory, but I've saved space.
-
-Note that the only real limitation is that, that we can't make a @BAKE
-command the size of THIS file, or a a @BAKE command inlining all of
-Bake. If you need such a feature, use the old version of Bake, or
-simply extend this version. I may do such things, because the code
-here is better.
-
-This project really was never meant to be optimized, simply memory
-confined. if it goes over, it'll SEGV and imply to the diligent user
-to shorten his commands. If you just need enough in a simple fashion,
-boosting:
-#define BUFFER_SIZE (1 << 12) /* 4096 bytes; 4 KiB */
-                 TO (1 << 20) /* 1048576 bytes; 1 MiB */
-
-4 KiB is enough in 99% cases and covers 100% of usage that I am aware
-of apart from the case of testing this exact faculty. If it does limit
-you, you can use an external script or <Using Make!/Old Bake>
-
-I'm not planning to update Shake with @STOP, @LINE, (-x, --expunge),
-or any new bells and wistles.
+Lex. As adviced by the original creator, I learned and implemented a
+Bake with lex. Removes facilitated expunge and color, may be rectified.

@@ -44,20 +44,20 @@ MACROS (@BAKE|@FILENAME|@FILE|@NAME|@SHORT|@ARGS|@LINE|@STOP|$@|$*|$+)
 .  {;}
 
 <FOUND>{
- @BAKE[[:space:]]|@STOP { BEGIN INITIAL; yyless(0); if (first_nl) { CHAR('\n'); } if (!g_select) { return 0; }    }
- @FILENAME|@FILE|@NAME|$@ { STRING(g_filename);                                                                     }
- @SHORT:[[:digit:]]+    { shorten(g_filename, atoi(strrchr(yytext, ':')+1));                                      }
- @SHORT|$\*             { shorten(g_filename, 1);                                                                 }
- @ARGS:[[:digit:]]+     { args(atoi(strrchr(yytext, ':')+1));                                                     }
- @ARGS|$\+              { args(-1);                                                                               }
- @LINE                  { FORMAT("%d", line);                                                                     }
- @\{                    { ++expunge_depth;                                                                        }
- \}                     { if (!expunge_depth--) { ECHO; }                                                         }
- \\\n                   { BEGIN PADDING; ++line; CHAR(' ');                                                       }
- \\{MACROS}             { STRING(yytext + 1);                                                                     }
- \n                     { CHAR('\n'); ++line; if (first_nl) { BEGIN STOP; first_nl = 0; tmpline = 0; }            }
- {SPACE}                { BEGIN PADDING; CHAR(' ');                                                               }
- .                      { ECHO;                                                                                   }
+ @BAKE[[:space:]]|@STOP   { BEGIN INITIAL; yyless(0); if (first_nl) { CHAR('\n'); } if (!g_select) { return 0; }    }
+ @FILENAME|@FILE|@NAME|$@ { STRING(g_filename);                                                                   }
+ @SHORT:[[:digit:]]+      { shorten(g_filename, atoi(strrchr(yytext, ':')+1));                                      }
+ @SHORT|$\*               { shorten(g_filename, 1);                                                                 }
+ @ARGS:[[:digit:]]+       { args(atoi(strrchr(yytext, ':')+1));                                                     }
+ @ARGS|$\+                { args(-1);                                                                               }
+ @LINE                    { FORMAT("%d", line);                                                                     }
+ @\{                      { ++expunge_depth;                                                                        }
+ \}                       { if (!expunge_depth--) { ECHO; }                                                         }
+ \\\n                     { BEGIN PADDING; ++line; CHAR(' ');                                                       }
+ \\{MACROS}               { STRING(yytext + 1);                                                                     }
+ \n                       { CHAR('\n'); ++line; if (first_nl) { BEGIN STOP; first_nl = 0; tmpline = 0; }            }
+ {SPACE}                  { BEGIN PADDING; CHAR(' ');                                                               }
+ .                        { ECHO;                                                                                   }
 }
 
 <PADDING>{
@@ -115,6 +115,8 @@ int main (int ac, char ** av) {
     if (av[0][1] == '-') {
       if (av[0][2] == '\0')            { ++av, --ac;                       goto start;       }
       if (!strcmp(av[0]+2, "dry-run")) { i = strlen(av[0]);                goto opt_dry_run; }
+      if (!strcmp(av[0]+2, "color"))   { i = strlen(av[0]);                goto opt_color;   }
+      if (!strcmp(av[0]+2, "expunge"))   { i = strlen(av[0]);              goto opt_expunge; }
       if (!strcmp(av[0]+2, "select" )) { if (!ac-1 || isdigit(av[1][0])) { goto opt_arg;     }
                                          ++av, --ac; i = strlen(av[0]);    goto opt_select;  }
       if (!strcmp(av[0]+2, "list"   )) { i = strlen(av[0]);                goto opt_list;    }
@@ -134,6 +136,8 @@ int main (int ac, char ** av) {
           break;
         opt_list:    case 'l': run = 0; g_select = -1; break;
         opt_help:    case 'h': help(); return 0;
+        opt_color:   case 'c': break;
+        opt_expunge: case 'x': break;
         opt_default:  default: fprintf(stderr, "%s: Unknown option '%s'\n", av0, av[0]); return 1;
         opt_arg:               fprintf(stderr, "%s: Argument missing for '%s'\n", av0, av[0]); return 1;
       }
@@ -170,6 +174,7 @@ int main (int ac, char ** av) {
   if (!run) { return 0; }
   fprintf(stderr, "output: "); fflush(stderr);
   run = pclose(g_pipe); /* repurposed run */
+  putchar('\n');
   if (run) { printf("%s: Exit code %d\n", av0, run); }
   return run;
   out_of_range: fprintf(stderr, "%s: <%d> Out of range\n", av0, g_select); return 1;
