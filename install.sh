@@ -2,14 +2,12 @@
 # source install
 
 TARGET=${TARGET:-/usr/local}
-INSTALL=${INSTALL:-bake shake}
+INSTALL=${INSTALL:-bake}
 
-cd $(dirname "$(readlink -f "$0")")/src
-chmod +x shake
+cd "$(dirname "$(readlink -f $0)")"
 
-./shake bake.c -s $@ && \
+./shake bake.l -s $@ && \
 mkdir $TARGET/bin $TARGET/man/man1 -p && \
 install -m 755 $INSTALL $TARGET/bin
 
-gzip -c bake.1 > $TARGET/man/man1/bake.1.gz && \
-ln -f -s $TARGET/man/man1/bake.1.gz $TARGET/man/man1/shake.1.gz 
+gzip -c bake.1 > $TARGET/man/man1/bake.1.gz

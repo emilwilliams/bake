@@ -79,6 +79,8 @@ if [[ -n $line ]]; then
     line=${line//@FILENAME/$input_file}
     line=${line//@SHORT/${input_file%.*}}
     line=${line//@ARGS/$@}
+    line=${line//@NAME/$input_file}
+    line=${line//@FILE/$input_file}
     line=$(echo "$line" | sed 's/@STOP.*//')
 
     echo -e "${BOLD}${GREEN}$0${NORMAL}: ${line#*${MARK}}"
