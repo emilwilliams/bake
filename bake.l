@@ -41,7 +41,7 @@ MACROS (@BAKE|@FILENAME|@FILE|@NAME|@SHORT|@ARGS|@LINE|@STOP|$@|$*|$+)
   first_nl = 1;
   if (yytext[yyleng-1] == '\n') { ++line;                                                        }
   if (!g_select)                {                                                              ; }
-  else if (g_select < 0)        { BEGIN FOUND; printf("\n%s:%d:s%d: ", g_filename, line, ++nth); }
+  else if (g_select < 0)        { BEGIN FOUND; printf("%s:%d:s%d: ", g_filename, line, ++nth); }
   else if (!--g_select)         { BEGIN FOUND;                                                   }
 }
 
