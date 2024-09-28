@@ -21,7 +21,7 @@ char ** g_av, * g_filename, * av0;
 int line = 1, expunge_depth, first_nl, tmpline;
 
 extern void root(char * filename);
-extern void args(int n);
+extern void args(int n, int rest);
 extern void shorten(char * filename, int n);
 extern void pipeopen(char * filename, char * mode);
 %}
@@ -29,7 +29,7 @@ extern void pipeopen(char * filename, char * mode);
 SPACE [ \t\r\v\f]
 MACROS (@BAKE|@FILENAME|@FILE|@NAME|@SHORT|@ARGS|@LINE|@STOP|$@|$*|$+)
 
-%x FOUND PADDING STOP EXPAND
+%x FOUND PADDING STOP
 %option nodefault noinput nounput noyywrap
 %%
 
@@ -39,10 +39,10 @@ MACROS (@BAKE|@FILENAME|@FILE|@NAME|@SHORT|@ARGS|@LINE|@STOP|$@|$*|$+)
 @BAKE[[:space:]] { bake:
   static int nth = 0;
   first_nl = 1;
-  if (yytext[yyleng-1] == '\n') { ++line;                                                        }
-  if (!g_select)                {                                                              ; }
+  if (yytext[yyleng-1] == '\n') { ++line;                                                      }
+  if (!g_select)                {                                                            ; }
   else if (g_select < 0)        { BEGIN FOUND; printf("%s:%d:s%d: ", g_filename, line, ++nth); }
-  else if (!--g_select)         { BEGIN FOUND;                                                   }
+  else if (!--g_select)         { BEGIN FOUND;                                                 }
 }
 
 <FOUND>{
@@ -64,21 +64,18 @@ MACROS (@BAKE|@FILENAME|@FILE|@NAME|@SHORT|@ARGS|@LINE|@STOP|$@|$*|$+)
  '                        { if (g_rm) { STRING("\\'"); } else { ECHO; }                                          }
  @BAKE[[:space:]]|@STOP   { BEGIN INITIAL; yyless(0); if (first_nl) { CHAR('\n'); } if (!g_select) { return 0; } }
  \\\n                     { BEGIN PADDING; ++line; CHAR(' ');                                                    }
- {MACROS}                 { BEGIN EXPAND; yyless(0);                                                             }
+ @FILENAME|@FILE|@NAME|$@ { STRING(g_filename);                                                                  }
+ @SHORT:[[:digit:]]+      { shorten(g_filename, atoi(strrchr(yytext, ':')+1));                                   }
+ @SHORT|$\*               { shorten(g_filename, 1);                                                              }
+ @ARGS:[[:digit:]]+       { args(atoi(strrchr(yytext, ':')+1), 0);                                               }
+ @ARGS:[[:digit:]]+\+     { args(atoi(strrchr(yytext, ':')+1), 1);                                               }
+ @ARGS|$\+                { args(0, 1);                                                                          }
+ @LINE                    { FORMAT("%d", line);                                                                  }
+ @RECURS                  { char * prog = realpath(av0, NULL); STRING(prog); free(prog);                         }
  \\{MACROS}               { STRING(yytext + 1);                                                                  }
  {SPACE}                  { BEGIN PADDING; CHAR(' ');                                                            }
  \n                       { CHAR('\n'); ++line; if (first_nl) { BEGIN STOP; first_nl = 0; tmpline = 0; }         }
  .|\\'                    { ECHO;                                                                                }
-}
-
-<EXPAND>{
- @FILENAME|@FILE|@NAME|$@ { BEGIN FOUND; STRING(g_filename);                                }
- @SHORT:[[:digit:]]+      { BEGIN FOUND; shorten(g_filename, atoi(strrchr(yytext, ':')+1)); }
- @SHORT|$\*               { BEGIN FOUND; shorten(g_filename, 1);                            }
- @ARGS:[[:digit:]]+       { BEGIN FOUND; args(atoi(strrchr(yytext, ':')+1));                }
- @ARGS|$\+                { BEGIN FOUND; args(-1);                                          }
- @LINE                    { BEGIN FOUND; FORMAT("%d", line);                                }
- .|\n                     { BEGIN FOUND; yyless(0); }
 }
 
 <PADDING>{
@@ -112,9 +109,9 @@ void root(char * filename) {
   free(path);
 }
 
-void args(int n) {
-  if (n < 0) { for (int i = 0; i < g_ac; ++i) { STRING(g_av[i]); if (i + 1 < g_ac) { CHAR(' '); } } }
-  else if (n < g_ac) { STRING(g_av[n]); }
+void args(int n, int rest) {
+  if (!rest && n < g_ac) { STRING(g_av[n]); }
+  else for (int i = n; i < g_ac; ++i) { STRING(g_av[i]); if (i + 1 < g_ac) { CHAR(' '); } }
 }
 
 void shorten(char * filename, int n) {
