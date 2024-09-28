@@ -11,25 +11,25 @@ bake is a simple tool meant to execute embedded shell commands within
 any file.  It executes with /bin/sh the command after a "\fB@BAKE\fP " to
 the end of the line (a UNIX newline: '\fB\\n\fP').
 
-This format may be embedded within \fBbinary files\fP, or any file where no unwanted preceding
-instance of \fB@BAKE\fP appears.
+This format may be embedded within \fBany file\fP.
 
 It roots the shell execution in the directory of the given file.
 
-Options must always be put first, and short options may be merged together, numerical options must be trailing.
+Options must always be put before the filename, and short options may be merged together, numerical options must be trailing.
 
 .HP
  \-h \-\-help, Help message
-\fB\-n \-\-dry\-run\fP, don't execute anything
-\fB\-l \-\-list\fP, lists available shell commands
-\fB\-s \-\-select\fP <\FBn\fP>, selects Nth shell command
-\fB\-x \-\-expunge\fP, Removes what's specified in the expunge block <disabled for this build>
+ \fB\-n \-\-dry\-run\fP, don't execute anything
+ \fB\-c \-\-color\fP, disables color
+ \fB\-l \-\-list\fP, lists available shell commands
+ \fB\-s \-\-select\fP \<n\>, selects Nth shell command
+ \fB\-x \-\-expunge\fP, Removes what's specified in the expunge block
 .PP
 Macros
 
 All macros can be exempted by prefixing them with a backslash,
-which'll be subtracted in the expansion. multi-line commands may be
-done by a leading backslash, which are NOT subtracted.
+which'll be subtracted in the expansion. backslashes may be used to
+extend a command over several lines.
 
 These macros will expand to their counterpart before execution.
 .TP
@@ -41,20 +41,24 @@ returns target\-file without suffix (abc.x.txt \-> abc.x)
 supports choice syntax, @SHORT:N removes N suffixes, so (a.b.c 2 -> a)
 .TP
 .B @ARGS, $+
-returns
-.B arguments
-, supports choice syntax, @ARGS:0 returns the first argument, @ARGS:N so on.
+returns \fBarguments\fP, supports choice syntax: @ARGS:N prints the
+Nth argument starting from 0, leading plus prints inclusive remaining
+arguments (@ARGS:N+)
 .TP
 .B @LINE
 returns the line number
+.TP
+.B @RECURS
+returns full executable name (e.g. /usr/local/bin/bake)
 
 .PP
 Additional Features And Notes
 
 Shell execution may be disabled with the \fB-n\fP or \fB--dry-run\fP option.
 
-Expunge removes exactly one file specified in the @{...} format. You may use
-backslashes to remove
+Expunge removes exactly one file specified in the @{TEXT} format, and
+is not recursive. Expunge simply outputs rm 'TEXT...', where text
+expands any instance of ' to \\'.
 
 .SH EXAMPLE
 .\" SRC BEGIN (example.c)

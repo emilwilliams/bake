@@ -27,16 +27,19 @@ extern void pipeopen(char * filename, char * mode);
 %}
 
 SPACE [ \t\r\v\f]
-MACROS (@BAKE|@FILENAME|@FILE|@NAME|@SHORT|@ARGS|@LINE|@STOP|$@|$*|$+)
+                        /* Everything that can be backslashed */
+FILENAME (@FILENAME|@FILE|@NAME)
+CMD       @BAKE[[:space:]]
+MACROS   ({CMD}|@STOP|{FILENAME}|@SHORT|@ARGS|@LINE|@RECURS|$@|$*|$+|@\{)
 
 %x FOUND PADDING STOP
 %option nodefault noinput nounput noyywrap
 %%
 
-\n { ++line; }
-.  { ; }
+\n                    { ++line; }
+.|\\@BAKE[[:space:]]  {       ; }
 
-@BAKE[[:space:]] { bake:
+{CMD} { bake:
   static int nth = 0;
   first_nl = 1;
   if (yytext[yyleng-1] == '\n') { ++line;                                                      }
@@ -61,21 +64,21 @@ MACROS (@BAKE|@FILENAME|@FILE|@NAME|@SHORT|@ARGS|@LINE|@STOP|$@|$*|$+)
    expunge_depth = 0;
  }
 
- '                        { if (g_rm) { STRING("\\'"); } else { ECHO; }                                          }
- @BAKE[[:space:]]|@STOP   { BEGIN INITIAL; yyless(0); if (first_nl) { CHAR('\n'); } if (!g_select) { return 0; } }
- \\\n                     { BEGIN PADDING; ++line; CHAR(' ');                                                    }
- @FILENAME|@FILE|@NAME|$@ { STRING(g_filename);                                                                  }
- @SHORT:[[:digit:]]+      { shorten(g_filename, atoi(strrchr(yytext, ':')+1));                                   }
- @SHORT|$\*               { shorten(g_filename, 1);                                                              }
- @ARGS:[[:digit:]]+       { args(atoi(strrchr(yytext, ':')+1), 0);                                               }
- @ARGS:[[:digit:]]+\+     { args(atoi(strrchr(yytext, ':')+1), 1);                                               }
- @ARGS|$\+                { args(0, 1);                                                                          }
- @LINE                    { FORMAT("%d", line);                                                                  }
- @RECURS                  { char * prog = realpath(av0, NULL); STRING(prog); free(prog);                         }
- \\{MACROS}               { STRING(yytext + 1);                                                                  }
- {SPACE}                  { BEGIN PADDING; CHAR(' ');                                                            }
- \n                       { CHAR('\n'); ++line; if (first_nl) { BEGIN STOP; first_nl = 0; tmpline = 0; }         }
- .|\\'                    { ECHO;                                                                                }
+ '                    { if (g_rm) { STRING("\\'"); } else { ECHO; }                                          }
+ {CMD}|@STOP          { BEGIN INITIAL; yyless(0); if (first_nl) { CHAR('\n'); } if (!g_select) { return 0; } }
+ \\\n                 { BEGIN PADDING; ++line; CHAR(' ');                                                    }
+ {FILENAME}|$@        { STRING(g_filename);                                                                  }
+ @SHORT:[[:digit:]]+  { shorten(g_filename, atoi(strrchr(yytext, ':')+1));                                   }
+ @SHORT|$\*           { shorten(g_filename, 1);                                                              }
+ @ARGS:[[:digit:]]+   { args(atoi(strrchr(yytext, ':')+1), 0);                                               }
+ @ARGS:[[:digit:]]+\+ { args(atoi(strrchr(yytext, ':')+1), 1);                                               }
+ @ARGS|$\+            { args(0, 1);                                                                          }
+ @LINE                { FORMAT("%d", line);                                                                  }
+ @RECURS              { char * prog = realpath(av0, NULL); STRING(prog); free(prog);                         }
+ \\{MACROS}           { STRING(yytext + 1);                                                                  }
+ {SPACE}              { BEGIN PADDING; CHAR(' ');                                                            }
+ \n                   { CHAR('\n'); ++line; if (first_nl) { BEGIN STOP; first_nl = 0; tmpline = 0; }         }
+ .|\\'                { ECHO;                                                                                }
 }
 
 <PADDING>{
@@ -84,10 +87,10 @@ MACROS (@BAKE|@FILENAME|@FILE|@NAME|@SHORT|@ARGS|@LINE|@STOP|$@|$*|$+)
 }
 
 <STOP>{
- @BAKE[[:space:]] { line += tmpline; goto bake; }
- @STOP            { BEGIN FOUND; yyless(0);     }
- \n               { ++tmpline;   yymore();      }
- .|\\@            {              yymore();      }
+ {CMD} { line += tmpline; goto bake; }
+ @STOP { BEGIN FOUND; yyless(0);     }
+ \n    { ++tmpline;   yymore();      }
+ .|\\@ {              yymore();      }
 }
 
 %%

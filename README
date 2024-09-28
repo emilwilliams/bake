@@ -15,12 +15,14 @@ any file.  It executes with /bin/sh the command after a "@BAKE " to
 the end of the line (a UNIX newline: '\n').
 
 It expands some macros,
-	@FILENAME @FILE @NAME - filename
-	@SHORT - filename without suffix (abc.x.txt \-> abc.x)
-	@SHORT:N - removes N suffixes, so (a.b.c 2 -> a)
-	@ARGS  - other arguments to the program
-	@ARGS:N - Provides the Nth argument, starting from 0
-	@LINE  - line number at the selected @BAKE
+  @FILENAME @FILE @NAME - filename
+  @SHORT                - filename without suffix (abc.x.txt \-> abc.x)
+  @SHORT:N              - removes N suffixes, so (a.b.c 2 -> a)
+  @ARGS                 - other arguments to the program
+  @ARGS:N               - Provides the Nth argument, starting from 0
+  @ARGS:N+              - All arguments at and after Nth
+  @RECURS               - the full path name to the executable
+  @LINE                 - line number at the selected @BAKE
 
 All macros can be exempted by prefixing them with a backslash,
 which'll be subtracted in the expansion. commands may be
