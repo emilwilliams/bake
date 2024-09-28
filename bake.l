@@ -146,7 +146,7 @@ int main (int ac, char ** av) {
       if (!strcmp(av[0]+2, "dry-run")) { i = strlen(av[0]);                goto opt_dry_run; }
       if (!strcmp(av[0]+2, "color"))   { i = strlen(av[0]);                goto opt_color;   }
       if (!strcmp(av[0]+2, "expunge")) { i = strlen(av[0]);                goto opt_expunge; }
-      if (!strcmp(av[0]+2, "select" )) { if (!ac-1 || isdigit(av[1][0])) { goto opt_arg;     }
+      if (!strcmp(av[0]+2, "select" )) { if (!(ac-1) || !isdigit(av[1][0])) { goto opt_arg;  }
                                          ++av, --ac; i = strlen(av[0]);    goto opt_select;  }
       if (!strcmp(av[0]+2, "list"   )) { i = strlen(av[0]);                goto opt_list;    }
       if (!strcmp(av[0]+2, "help"   )) {                                   goto opt_help;    }
