@@ -1,6 +1,6 @@
-/* cbake.l @BAKE flex @FILE && cc -Wall -Wextra -std=c99 -D_GNU_SOURCE -o @SHORT lex.yy.c @ARGS -lfl @STOP */
+/* cbake.l @BAKE flex @FILE && cc -Wall -Wextra -std=c99 -D_GNU_SOURCE -o   @SHORT  lex.yy.c @ARGS -lfl @STOP */
 /* expunge @BAKE flex @FILE && cc -Wall -Wextra -std=c99 -D_GNU_SOURCE -o @{@SHORT} lex.yy.c @ARGS -lfl @STOP */
-/* expunge @BAKE @STOP */
+/* Licensed under the public domain. */
 
 %{
 #include <ctype.h>
@@ -17,6 +17,8 @@
 FILE  * g_pipe = NULL, * g_restore, * g_expunge;
 int     g_ac, g_select = 1, g_color = 1, g_rm = 0;
 char ** g_av, * g_filename, * av0;
+/* show additional padding inter and around command? */
+int g_skip = 0;
 /* for the lexers eyes only */
 int line = 1, expunge_depth, first_nl, tmpline;
 
@@ -64,7 +66,8 @@ MACROS   ({CMD}|@STOP|{FILENAME}|@SHORT|@ARGS|@LINE|@RECURS|$@|$*|$+|@\{)
    expunge_depth = 0;
  }
 
- '                    { if (g_rm) { STRING("\\'"); } else { ECHO; }                                          }
+ \"                   { g_skip = 1; ECHO;                                                                    }
+ '                    { if (g_rm) { STRING("\\'"); } else { g_skip = 1; ECHO; }                              }
  {CMD}|@STOP          { BEGIN INITIAL; yyless(0); if (first_nl) { CHAR('\n'); } if (!g_select) { return 0; } }
  \\\n                 { BEGIN PADDING; ++line; CHAR(' ');                                                    }
  {FILENAME}|$@        { STRING(g_filename);                                                                  }
@@ -76,7 +79,7 @@ MACROS   ({CMD}|@STOP|{FILENAME}|@SHORT|@ARGS|@LINE|@RECURS|$@|$*|$+|@\{)
  @LINE                { FORMAT("%d", line);                                                                  }
  @RECURS              { char * prog = realpath(av0, NULL); STRING(prog); free(prog);                         }
  \\{MACROS}           { STRING(yytext + 1);                                                                  }
- {SPACE}              { BEGIN PADDING; CHAR(' ');                                                            }
+ {SPACE}              { CHAR(' '); if (!g_skip) { BEGIN PADDING; }                                           }
  \n                   { CHAR('\n'); ++line; if (first_nl) { BEGIN STOP; first_nl = 0; tmpline = 0; }         }
  .|\\'                { ECHO;                                                                                }
 }

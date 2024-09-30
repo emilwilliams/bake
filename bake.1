@@ -8,8 +8,9 @@
 .SH DESCRIPTION
 
 bake is a simple tool meant to execute embedded shell commands within
-any file.  It executes with /bin/sh the command after a "\fB@BAKE\fP " to
-the end of the line (a UNIX newline: '\fB\\n\fP').
+any file.  It executes with /bin/sh the command after a "\fB@BAKE\fP "
+to the end of the line (a UNIX newline: '\fB\\n\fP') or to the first
+instance of @STOP.
 
 This format may be embedded within \fBany file\fP.
 
@@ -19,11 +20,11 @@ Options must always be put before the filename, and short options may be merged 
 
 .HP
  \-h \-\-help, Help message
- \fB\-n \-\-dry\-run\fP, don't execute anything
+ \fB\-n \-\-dry\-run\fP, don't execute or remove anything
  \fB\-c \-\-color\fP, disables color
- \fB\-l \-\-list\fP, lists available shell commands
- \fB\-s \-\-select\fP \<n\>, selects Nth shell command
- \fB\-x \-\-expunge\fP, Removes what's specified in the expunge block
+ \fB\-l \-\-list\fP, lists available bake blocks
+ \fB\-s \-\-select\fP \<n\>, selects Nth bake block
+ \fB\-x \-\-expunge\fP, Removes file specified in the expunge block
 .PP
 Macros
 

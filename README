@@ -10,9 +10,10 @@ install by running ./install.sh
 
 bake [-chln] [-s <n>] <FILENAME> [ARGS...]; version 20240928
 
-Bake is a simple tool meant to execute embedded shell commands within
-any file.  It executes with /bin/sh the command after a "@BAKE " to
-the end of the line (a UNIX newline: '\n').
+Bake is a simple tool meant  to execute embedded shell commands within
+any file.   It executes with /bin/sh  the command after a  "@BAKE " to
+the end of the line (a UNIX newline: '\n') or to the first instance of
+@STOP.
 
 It expands some macros,
   @FILENAME @FILE @NAME - filename
@@ -24,31 +25,37 @@ It expands some macros,
   @RECURS               - the full path name to the executable
   @LINE                 - line number at the selected @BAKE
 
-All macros can be exempted by prefixing them with a backslash,
-which'll be subtracted in the expansion. commands may be
-spanned over several lines with a leading backslash.
+All  macros  can be  exempted  by  prefixing  them with  a  backslash,
+which'll be subtracted in the  expansion. commands may be spanned over
+several lines with a leading backslash.
 
-It has five options, this message (-h, --help); prevents the execution
-of the shell command (-n, --dry-run); list (-l, --list) and select
-(-s<n>, --select <n>) which respectively lists all @BAKE commands and
-select & run the Nth command.
+-h --help	| Help message
+-n --dry-run	| don't execute or remove anything
+-c --color	| disables color
+-l --list	| lists available Bake blocks
+-s --select <n>	| selects Nth Bake block
+-x --expunge	| Removes the file specified in the expunge block
 
 It roots the shell execution in the directory of the given file.
 
 Licensed under the public domain.
 
+--- Potential Issues
+
+Whitespace interstring is pruned, which may lead to an issue where you may echo ' ' or require more than one space, please don't do this. If you absolutely need this remove the 'BEGIN PADDING;' statement from the <FOUND>{space} rule. You may also wish to solve the issue with adding a conditional to ' (excluding expunge) and " to wind and not observe the other rules via another group that matches the identity of <OVERLOOK>(.|\n){ ECHO; } & <OVERLOOK>('|"){ BEGIN FOUND; ECHO; }, modify other rules in <FOUND> accordingly.
+
 ---
 
 Shake
 
-Bake was inspired by the Bash-based Shake utility (formerly eMake, he
-liked my suggestion for a name).  It is included under authorization
-of its creator.  The original version of Shake may be found at:
+Bake was inspired by the  Bash-based Shake utility (formerly eMake, he
+liked my suggestion  for a name).  It is  included under authorization
+of  its creator.   The  original version  of Shake  may  be found  at:
 <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
 
-Bake includes a modified Shake, both after installation and as a
+Bake  includes a  modified Shake,  both  after installation  and as  a
 bootstrapper.  The modified version includes all features of Bake with
-the exceptions of multi-line commands.  It is not a general
+the  exceptions  of   multi-line  commands.   It  is   not  a  general
 replacement for Bake.
 
 Changelog
@@ -57,5 +64,5 @@ Bake was created on 2023/09/13, and complete as of 2024/03/02.
 
 2024-09-27
 
-Lex. As adviced by the original creator, I learned and implemented a
-Bake with lex. Removes facilitated expunge and color, may be rectified.
+Lex. As adviced  by the original creator, I learned  and implemented a
+Bake with lex. It's fully featured, and has new stuff.
