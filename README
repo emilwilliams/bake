@@ -40,10 +40,6 @@ It roots the shell execution in the directory of the given file.
 
 Licensed under the public domain.
 
---- Potential Issues
-
-Whitespace interstring is pruned, which may lead to an issue where you may echo ' ' or require more than one space, please don't do this. If you absolutely need this remove the 'BEGIN PADDING;' statement from the <FOUND>{space} rule. You may also wish to solve the issue with adding a conditional to ' (excluding expunge) and " to wind and not observe the other rules via another group that matches the identity of <OVERLOOK>(.|\n){ ECHO; } & <OVERLOOK>('|"){ BEGIN FOUND; ECHO; }, modify other rules in <FOUND> accordingly.
-
 ---
 
 Shake
