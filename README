@@ -8,7 +8,7 @@ install by running ./install.sh
 
 ---
 
-bake [-chln] [-s <n>] <FILENAME> [ARGS...]; version 20240928
+bake [-chln] [-s <n>] <FILENAME> [ARGS...]; version 20240930
 
 Bake is a simple tool meant  to execute embedded shell commands within
 any file.   It executes with /bin/sh  the command after a  "@BAKE " to
