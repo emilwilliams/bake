@@ -1,5 +1,5 @@
-/* cbake.l @BAKE flex @FILE && cc -Wall -Wextra -std=c99 -D_GNU_SOURCE -o   @SHORT  lex.yy.c @ARGS -lfl @STOP */
-/* expunge @BAKE flex @FILE && cc -Wall -Wextra -std=c99 -D_GNU_SOURCE -o @{@SHORT} lex.yy.c @ARGS -lfl @STOP */
+/* cbake.l @BAKE flex @FILE && cc -Wall -Wextra -std=c99 -D_GNU_SOURCE -o   @SHORT  lex.yy.c @ARGS @STOP */
+/* expunge @BAKE flex @FILE && cc -Wall -Wextra -std=c99 -D_GNU_SOURCE -o @{@SHORT} lex.yy.c @ARGS @STOP */
 /* Licensed under the public domain. */
 
 %{
