@@ -98,6 +98,8 @@ MACROS   ({CMD}|@STOP|{FILENAME}|@SHORT|@ARGS|@LINE|@RECURS|$@|$*|$+|@\{)
 
 %%
 
+#include <limits.h>
+
 # define    RED "\033[91m"
 # define  GREEN "\033[92m"
 # define YELLOW "\033[93m"
@@ -106,13 +108,12 @@ MACROS   ({CMD}|@STOP|{FILENAME}|@SHORT|@ARGS|@LINE|@RECURS|$@|$*|$+|@\{)
 # define  RESET "\033[0m"
 
 void root(char * filename) {
-  char * path, * terminator;
-  if (!(path = realpath(filename, NULL))) { return; }
+  char path[PATH_MAX], * terminator;
+  if (!realpath(filename, path)) { return; }
   if ((terminator = strrchr(path, '/'))) {
     *terminator = '\0';
-    chroot(path);
+    chdir(path);
   }
-  free(path);
 }
 
 void args(int n, int rest) {
@@ -187,6 +188,7 @@ int main (int ac, char ** av) {
 
   g_filename = av[0];
   root(g_filename);
+
   { /* ensures the filename doesn't have a relative path that would misdirect the command within the new root */
     char * tmp = strrchr(g_filename, '/');
     if (tmp) { g_filename = tmp+1; }
@@ -198,6 +200,7 @@ int main (int ac, char ** av) {
   g_ac = --ac, g_av = ++av;
 
   /* setup pipe and output */
+
   if (run) {
     pipeopen("/bin/sh -e /dev/stdin", "w");
   }
