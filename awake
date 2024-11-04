@@ -1,0 +1,80 @@
+#!/bin/sh
+# vim:set ft=awk:
+# SPDX-License-Identifier: Unlicense
+"exec" "${AWK:-awk}" "-f" "$0" "--" "$@" && 0
+function usage() {
+	print "awake: usage: awake [-nl] [-s num] filename [args...]"
+	exit
+}
+BEGIN {
+	RS = "\r?\n"
+	FS = "\n"
+	select = 1
+	for (i = 1; i < ARGC; i++) {
+		if (!optsdone && substr(ARGV[i], 1, 1) == "-") {
+			if (ARGV[i] == "--") {
+				optsdone = 1
+			} else {
+				for (j = 2; j <= length(ARGV[i]); j++) {
+					c = substr(ARGV[i], j, 1)
+					if (c == "s") {
+						select = substr(ARGV[i], j+1)
+						if (!select) {
+							ARGV[i] = ""
+							select = ARGV[++i]
+						}
+						if (select !~ /^[0-9]+$/) {
+							print "awake: junk -s argument: "select
+							usage()
+						}
+						break
+					} else if (c == "n") {
+						dryrun = 1
+					} else if (c == "l") {
+						list = 1
+					} else {
+						print "awake: unknown option: -"c
+						usage()
+					}
+				}
+			}
+			ARGV[i] = ""
+		} else if (hasfilename) {
+			if (extraargs) {
+				extraargs = extraargs" "ARGV[i]
+			} else {
+				extraargs = ARGV[i]
+			}
+			ARGV[i] = ""
+		} else {
+			if (index(ARGV[i], "=")) {
+				print "awake: bad filename: "ARGV[i]
+				usage()
+			}
+			hasfilename = 1
+			shortname = filename = ARGV[i]
+			sub(/.*\//, "", shortname)
+			sub(/[.][^.]*/, "", shortname)
+		}
+	}
+	if (!hasfilename) {
+		usage()
+	}
+}
+/@BAKE[ ]/ {
+	bakenum++
+	sub(/.*@BAKE[ ]/, "")
+	sub(/ *@STOP.*/, "")
+	if (list) {
+		print bakenum": "$0
+	} else if (select == bakenum) {
+		gsub(/@FILENAME/, filename)
+		gsub(/@NAME/, filename)
+		gsub(/@SHORT/, shortname)
+		gsub(/@ARGS/, extraargs)
+		print
+		if (!dryrun) {
+			system($0)
+		}
+	}
+}
