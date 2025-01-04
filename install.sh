@@ -1,6 +1,8 @@
 #!/bin/sh
 # source install
 
+cd "$(dirname "$(readlink -f $0)")" || exit
+
 TARGET="${TARGET:-/usr/local}"
 INSTALL="bake"
 
@@ -9,6 +11,7 @@ usage() {
     echo ""
     echo "--alternatives          Includes awake and shake into the build"
     echo "--target=DIRECTORY      Target directory like /usr or /usr/local"
+    echo "--prebuilt              Program is prebuilt"
     echo ""
     exit 1
 }
@@ -24,6 +27,9 @@ while [ ! -z $1 ]; do
         "--help")
             usage
             ;;
+        "--prebuilt")
+            BUILD=1
+            ;;
         *)
             echo "Unknown option: " $1
             usage
@@ -32,9 +38,10 @@ while [ ! -z $1 ]; do
     shift
 done
 
-cd "$(dirname "$(readlink -f $0)")"
+if [ -z $BUILD ]; then
+    ./awake bake.l
+fi
 
-./awake bake.l
 mkdir -p "$TARGET/bin" "$TARGET/man/man1"
 install -m 755 $INSTALL "$TARGET/bin"
 gzip -c bake.1 > "$TARGET/man/man1/bake.1.gz"

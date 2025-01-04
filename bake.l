@@ -28,8 +28,8 @@ extern void shorten(char * filename, int n);
 
 SPACE [ \t\r\v\f]
                         /* Everything that can be backslashed */
-FILENAME (@FILE_NAME|@FILENAME|@FILE|@NAME)
-CMD       @BAKE[[:space:]]
+FILENAME @FILE
+CMD      @BAKE[[:space:]]
 MACROS   ({CMD}|@STOP|{FILENAME}|@SHORT|@ARGS|@LINE|@RECURS|$@|$*|$+|@\{)
 
 %x FOUND PADDING STOP

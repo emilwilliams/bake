@@ -1,10 +1,11 @@
 --- README
 
-A tool to run embedded scripts.
+Run embedded scripts.
 
-Bootstrap with ./shake bake.l
+Bootstrap with ./awake bake.l
 then compile further with ./bake,
-install by running ./install.sh
+
+or JUST install by running ./install.sh (has --help)
 
 ---
 
@@ -17,12 +18,11 @@ of @STOP. All @BAKE ... @STOP statements must become before any @BAKE
 ... EOLs.
 
 It expands some macros,
-  @FILENAME @FILE @NAME - filename
+  @FILE                 - filename
   @SHORT                - filename without suffix (abc.x.txt \-> abc.x)
   @SHORT:N              - removes N suffixes, so (a.b.c 2 -> a)
   @ARGS                 - other arguments to the program
-  @ARGS:N               - Provides the Nth argument, starting from
-0
+  @ARGS:N               - Provides the Nth argument, starting from 0
   @ARGS:N+              - All arguments at and after Nth
   @RECURS               - the full path name to the executable
   @LINE                 - line number at the selected @BAKE
@@ -31,10 +31,10 @@ All  macros  can be  exempted  by  prefixing  them with  a  backslash,
 which'll be subtracted in the  expansion. commands may be spanned over
 several lines with a leading backslash.
 
--h --help	| Help message
+-h --help       | Help message
 -n --dry-run	| don't execute or remove anything
--c --color	| disables color
--l --list	| lists available Bake blocks
+-c --color      | disables color
+-l --list       | lists available Bake blocks
 -s --select <n>	| selects Nth Bake block
 -x --expunge	| Removes the file specified in the expunge block
 
@@ -59,6 +59,16 @@ Changelog
 
 Bake was created on 2023/09/13, and complete as of 2024/03/02.
 
+2024-03-02
+
+Initial relaase
+
+2024-04-04
+
+Expunge & color.
+
+2024-04 - 2024-08 - 3 Tags of bump -> minor fixes and improvements
+
 2024-09-27
 
 Lex. As adviced by the original creator, I learned and implemented
@@ -75,3 +85,23 @@ to the BSDs.
 
 cd /dir/of/file; awake file
 See --help
+
+2025-01-04
+
+Introducing some breaking changes.
+Remove @FILENAME @NAME, and @FILE_NAME (heyo) leaving only @FILE.
+Upgraded ./install.sh to have options.
+
+s/@(FILE_?NAME|NAME)/@FILE/g
+
+I'm finished with tool for the rest of time and have put zero effort
+into it this time. If I use it and it breaks, I'll fix it or replace
+it with something better.
+
+Anonson, the original creator made a ebuild for Gentoo a few months
+ago, and I will link it here when I receive that link from him. I may
+one day dare to package Bake as a deb. I would likely have to rename
+bake to ebake, which is somehow worse than the original name of eMake.
+
+ebuild: <PENDING>
+debian: <PENDING> (perhaps forever)
