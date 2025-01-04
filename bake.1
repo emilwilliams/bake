@@ -8,9 +8,10 @@
 .SH DESCRIPTION
 
 bake is a simple tool meant to execute embedded shell commands within
-any file.  It executes with /bin/sh the command after a "\fB@BAKE\fP "
-to the end of the line (a UNIX newline: '\fB\\n\fP') or to the first
-instance of @STOP.
+any file. It executes with /bin/sh the command after a "\fB@BAKE\fP
+" to the end of the line (a UNIX newline: '\fB\\n\fP') or to the first
+instance of @STOP. All @BAKE ... @STOP statements must become before
+any @BAKE ... EOLs.
 
 This format may be embedded within \fBany file\fP.
 
@@ -57,11 +58,22 @@ Additional Features And Notes
 
 Shell execution may be disabled with the \fB-n\fP or \fB--dry-run\fP option.
 
-Expunge removes exactly one file specified in the @{TEXT} format, and
-is not recursive. Expunge simply outputs rm 'TEXT...', where text
-expands any instance of ' to \\'.
+Expunge removes exactly one file specified in the @{FILENAME} format,
+and the action is nonrecursive. Expunge simply outputs rm 'FILENAME...',
+where the FILENAME expands any instance of ' to \\'.
+
+.PP
+Other Implementations (NONDEFAULT)
+
+Shake - Bash based, The modified version includes all features with
+the exceptions of multi-line (as in to @STOP), select, and usable expunge.
+
+Awake - AWK based, does not support multi-line (as in to @STOP), expunge,
+parses options after filename, color, or changing directory to file's
+directory - it's compatible with Bake otherwise.
 
 .SH EXAMPLE
+
 .\" SRC BEGIN (example.c)
 .EX
 // example.c @BAKE cc -o @SHORT @NAME @ARGS

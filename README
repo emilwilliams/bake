@@ -10,17 +10,19 @@ install by running ./install.sh
 
 bake [-chln] [-s <n>] <FILENAME> [ARGS...]; version 20240930
 
-Bake is a simple tool meant  to execute embedded shell commands within
-any file.   It executes with /bin/sh  the command after a  "@BAKE " to
-the end of the line (a UNIX newline: '\n') or to the first instance of
-@STOP.
+Bake is a simple tool meant to execute embedded shell commands within
+any file. It executes with /bin/sh the command after a "@BAKE " to
+the end of the line (a UNIX newline: '\n') or to the first instance
+of @STOP. All @BAKE ... @STOP statements must become before any @BAKE
+... EOLs.
 
 It expands some macros,
   @FILENAME @FILE @NAME - filename
   @SHORT                - filename without suffix (abc.x.txt \-> abc.x)
   @SHORT:N              - removes N suffixes, so (a.b.c 2 -> a)
   @ARGS                 - other arguments to the program
-  @ARGS:N               - Provides the Nth argument, starting from 0
+  @ARGS:N               - Provides the Nth argument, starting from
+0
   @ARGS:N+              - All arguments at and after Nth
   @RECURS               - the full path name to the executable
   @LINE                 - line number at the selected @BAKE
@@ -44,17 +46,14 @@ Licensed under the public domain.
 
 Shake
 
-Bake was inspired by the  Bash-based Shake utility (formerly eMake, he
-liked my suggestion  for a name).  It is  included under authorization
-of  its creator.   The  original version  of Shake  may  be found  at:
+Bake was inspired by the Bash-based Shake utility (formerly eMake,
+he liked my suggestion for a name). It is included under authorization
+of its creator. The original version of Shake may be found at:
 <http://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/shake>
 
-Bake  includes a  modified Shake,  both  after installation  and as  a
-bootstrapper.  The modified version includes all features of Bake with
-the  exceptions  of   multi-line  commands.   It  is   not  a  general
-replacement for Bake.
-
-Shake doesn't support multi-line commands.
+Bake includes a modified Shake, optionally installation and as the
+old bootstrapper. The modified version includes all features of Bake
+with the exceptions of multi-line commands and usable expunge.
 
 Changelog
 
@@ -62,16 +61,17 @@ Bake was created on 2023/09/13, and complete as of 2024/03/02.
 
 2024-09-27
 
-Lex. As adviced  by the original creator, I learned  and implemented a
-Bake with lex. It's fully featured, and has new stuff.
+Lex. As adviced by the original creator, I learned and implemented
+a Bake with lex. It's fully featured, and has new stuff.
 
-2024-10-24 - Awake
+2024-10-24
+- Awake
 
-Egor (some dead guy) made a AWK implementation of Bake, it's POSIX.
+Egor (some dead guy) made an AWK implementation of Bake, it's POSIX.
 It doesn't support multi-line, expunge, parses options after filename,
 or changing directory to file's directory - it's compatible with Bake
-otherwise.
+otherwise. It's the new bootstrapper as AWK should be more portable
+to the BSDs.
 
- cd /dir/of/file; awake file
-
-See ./awake --help
+cd /dir/of/file; awake file
+See --help
