@@ -1,7 +1,8 @@
 #!/bin/sh
 # vim:set ft=awk:
+# Written by Egor, modified for compatibility by Emil.
 # SPDX-License-Identifier: Unlicense
-"exec" "${AWK:-awk}" "-f" "$0" "--" "$@" && 0
+"exec" "${AWK:-awk}" "-f" "$(basename $0)" "--" "$@" && 0
 function usage() {
 	print "awake: usage: awake [-nl] [-s num] filename [args...]"
 	exit
@@ -68,13 +69,15 @@ BEGIN {
 	if (list) {
 		print bakenum": "$0
 	} else if (select == bakenum) {
-		gsub(/@FILENAME/, filename)
-		gsub(/@NAME/, filename)
-		gsub(/@SHORT/, shortname)
-		gsub(/@ARGS/, extraargs)
-		print
+		gsub(/\$@|@(FILE|FILENAME|NAME)/, filename)
+		gsub(/\$\*|@SHORT/, shortname)
+		gsub(/\$\+|@ARGS/, extraargs)
+		gsub(/@RECURS/, ARGV[0])
+		print "Awake: " $0
+        printf "Output: "
 		if (!dryrun) {
 			system($0)
+            print ""
 		}
 	}
 }

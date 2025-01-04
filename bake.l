@@ -1,5 +1,4 @@
-/* cbake.l @BAKE flex @FILE && cc -Wall -Wextra -std=c99 -D_GNU_SOURCE -o   @SHORT  lex.yy.c @ARGS @STOP */
-/* expunge @BAKE flex @FILE && cc -Wall -Wextra -std=c99 -D_GNU_SOURCE -o @{@SHORT} lex.yy.c @ARGS @STOP */
+/* @BAKE flex @FILE && cc -Wall -Wextra -Wwrite-strings -std=c99 -D_GNU_SOURCE -o @SHORT lex.yy.c @ARGS @STOP */
 /* Licensed under the public domain. */
 
 %{
@@ -25,7 +24,6 @@ int line = 1, expunge_depth, first_nl, tmpline;
 extern void root(char * filename);
 extern void args(int n, int rest);
 extern void shorten(char * filename, int n);
-extern void pipeopen(char * filename, char * mode);
 %}
 
 SPACE [ \t\r\v\f]
@@ -99,6 +97,7 @@ MACROS   ({CMD}|@STOP|{FILENAME}|@SHORT|@ARGS|@LINE|@RECURS|$@|$*|$+|@\{)
 %%
 
 #include <limits.h>
+#include <stdarg.h>
 
 # define    RED "\033[91m"
 # define  GREEN "\033[92m"
@@ -125,19 +124,33 @@ void shorten(char * filename, int n) {
   char * end = filename + strlen(filename);
   while (n && (end = memrchr(filename, '.', end - filename))) { --n; }
   if (!end) {
-    fprintf(stderr, "<SHORTEN> context error: Argument out of range.\n");
-    /* Ensures consistency. @SHORT will always return *something* that isn't filename */
-    STRING("idiot");
-    return;
+    fprintf(stderr, "%s: Cannot shorten '%s' any further, aborting due to paranoia\n", av0, filename);
+    abort();
   }
   FWRITE(filename, end - filename);
 }
 
 void help(void) { fprintf(stderr, g_color ? BOLD "%s" RESET : "%s", "see bake(1) - \"Buy high. Sell low.\"\n"); }
 
-void pipeopen(char * filename, char * mode) {
-  g_pipe = popen(filename, mode);
-  if (!g_pipe) { fprintf(stderr, "%s: <g_pipe> %s\n", av0, strerror(errno)); exit(1); }
+FILE * pipeopen(char * filename, char * mode) {
+  FILE * pipe = popen(filename, mode);
+  if (!pipe) { fprintf(stderr, "%s: <pipeopen> %s\n", av0, strerror(errno)); exit(1); }
+  return pipe;
+}
+
+void print(FILE * fp, char * color_prefix, char * format, ...) {
+  va_list ap;
+  size_t len = strlen(format);
+  g_color ? fprintf(fp, "%s%s: ", color_prefix, av0)
+          : fprintf(fp,   "%s: ", av0);
+  va_start(ap, format);
+  for (size_t i = 0, f = 0; i < len; ++i) {
+    if (!(format[i] ^ '\033')) {
+      while (format[i] && format[i] != 'm') ++i;
+    } else format[f++] = format[i];
+  }
+  vfprintf(fp, format, ap);
+  va_end(ap);
 }
 
 int main (int ac, char ** av) {
@@ -202,7 +215,8 @@ int main (int ac, char ** av) {
   /* setup pipe and output */
 
   if (run) {
-    pipeopen("/bin/sh -e /dev/stdin", "w");
+#define pipeopen(a,b) pipeopen((char*)(a), (char*)(b))
+    g_pipe = pipeopen("/bin/sh -e /dev/stdin", "w");
   }
   if (g_rm) {
     g_restore = stdout;
@@ -215,7 +229,7 @@ int main (int ac, char ** av) {
   yylex(); fflush(stdout);
 
   if (g_rm) {
-    fputs("\n", g_restore);
+    fputc('\n', g_restore);
     stdout = g_restore;
     g_pipe = g_expunge;
   }
@@ -229,7 +243,8 @@ int main (int ac, char ** av) {
 
   run = pclose(g_pipe); /* repurposed run */
   if (!g_rm) { putchar('\n'); }
-  if (run) { fprintf(stderr, "%s: Exit code %d\n", av0, run); }
+  if (run < 0) { fprintf(stderr, "%s: Exit failure\n", av0); }
+  if (run > 0) { fprintf(stderr, "%s: Exit code %d\n", av0, run); }
   return run;
   out_of_range: fprintf(stderr, "%s: <%d> Out of range\n", av0, g_select); return 1;
 }

@@ -54,6 +54,8 @@ bootstrapper.  The modified version includes all features of Bake with
 the  exceptions  of   multi-line  commands.   It  is   not  a  general
 replacement for Bake.
 
+Shake doesn't support multi-line commands.
+
 Changelog
 
 Bake was created on 2023/09/13, and complete as of 2024/03/02.
@@ -62,3 +64,14 @@ Bake was created on 2023/09/13, and complete as of 2024/03/02.
 
 Lex. As adviced  by the original creator, I learned  and implemented a
 Bake with lex. It's fully featured, and has new stuff.
+
+2024-10-24 - Awake
+
+Egor (some dead guy) made a AWK implementation of Bake, it's POSIX.
+It doesn't support multi-line, expunge, parses options after filename,
+or changing directory to file's directory - it's compatible with Bake
+otherwise.
+
+ cd /dir/of/file; awake file
+
+See ./awake --help

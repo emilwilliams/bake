@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Originally written by Anon, modified by Emil to better match Bake functionality
-
-# Issues: sloooow, fails to handle multi-line statements
+# Originally written by Anon, modified by Emil to better match Bake.
+# Please don't use this to compile Bake, use Awake instead.
+# Licensed under the public domain.
 
 VERSION="20240408"
 
