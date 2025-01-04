@@ -1,0 +1,11 @@
+Source: bake
+Version: 20250101
+Section: devel
+Priority: optional
+Maintainer: Emil Williams <emilemilemil@cock.li>
+Package: bake
+Architecture: amd64
+Depends: libc-bin (>= 2)
+Description: Run Embedded Shell Scripts
+ It executes with /bin/sh the command after a "@BAKE " to the end of
+ the line (a UNIX newline: '\n') or to the first instance of @STOP.

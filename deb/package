@@ -1,0 +1,16 @@
+#!/bin/sh
+cd "$(dirname "$(readlink -f $0)")" || exit
+
+mkdir -p bake/DEBIAN/ bake/usr/bin/ bake/usr/share/man/man1/ bake/usr/share/doc/
+
+cp ../bake bake/usr/bin/
+cp ../bake.1 bake/usr/share/man/man1/
+cp copyright changelog bake/usr/share/doc/
+cp control bake/DEBIAN/
+
+gzip -n9 bake/usr/share/man/man1/bake.1
+gzip -n9 bake/usr/share/doc/changelog
+
+strip bake/usr/bin/bake
+
+dpkg-deb --root-owner-group --build bake

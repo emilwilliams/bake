@@ -1,2 +1,4 @@
 bake
 lex.yy.c
+*.gz
+*.deb

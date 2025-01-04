@@ -104,4 +104,6 @@ one day dare to package Bake as a deb. I would likely have to rename
 bake to ebake, which is somehow worse than the original name of eMake.
 
 ebuild: <PENDING>
-debian: <PENDING> (perhaps forever)
+
+debian: provided in repo --
+./deb/package; dpkg -i deb/bake.deb # this installs only bake.
