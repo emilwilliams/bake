@@ -69,7 +69,7 @@ BEGIN {
 	if (list) {
 		print bakenum": "$0
 	} else if (select == bakenum) {
-		gsub(/\$@|@(FILE|FILENAME|NAME)/, filename)
+		gsub(/\$@|@(FILE_NAME|FILENAME|FILE|NAME)/, filename)
 		gsub(/\$\*|@SHORT/, shortname)
 		gsub(/\$\+|@ARGS/, extraargs)
 		gsub(/@RECURS/, ARGV[0])
