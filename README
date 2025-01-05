@@ -103,7 +103,12 @@ ago, and I will link it here when I receive that link from him. I may
 one day dare to package Bake as a deb. I would likely have to rename
 bake to ebake, which is somehow worse than the original name of eMake.
 
-ebuild: <PENDING>
+ebuild:
+ See <https://bis64wqhh3louusbd45iyj76kmn4rzw5ysawyan5bkxwyzihj67c5lid.onion/anon/agvxov-overlay>
 
-debian: provided in repo --
-./deb/package; dpkg -i deb/bake.deb # this installs only bake.
+ packaged under the agvxov overlay as dev-build/bake, see the README
+ for including this into your installation.
+
+debian: Provided in repo, run...
+ ./deb/package
+ dpkg -i deb/bake.deb
